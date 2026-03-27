@@ -1,0 +1,111 @@
+2026-02-08 18:40:00,121 - EO_Pipeline - INFO - [INGEST] START: Received ingestion request for product test_product_001
+2026-02-08 18:40:00,122 - EO_Pipeline - INFO - [INGEST] SUCCESS: Product test_product_001 is verified and staged. Initial Hash: 6fc733a9ce5d0ae3e1ad246fb21e498697a75694e5957f03b687bca628d12f56
+2026-02-08 18:40:00,124 - EO_Pipeline - INFO - [INGEST] START: Received ingestion request for product missing_data_product
+2026-02-08 18:40:00,124 - EO_Pipeline - ERROR - [INGEST] FAILED: Incomplete product. Missing files for missing_data_product.
+2026-02-08 18:40:00,126 - EO_Pipeline - INFO - [INGEST] START: Received ingestion request for product bad_schema_product
+2026-02-08 18:40:00,126 - EO_Pipeline - ERROR - [INGEST] FAILED: Schema validation failed for bad_schema_product. Error: Missing mandatory fields: {'sensor'}
+2026-02-08 19:08:14,338 - EO_Pipeline - WARNING - [AUTH] FAILURE: User 'eve_hacker' is disabled/banned.
+2026-02-08 19:08:14,561 - EO_Pipeline - WARNING - [AUTH] FAILURE: Invalid password for 'emanuele_admin'.
+2026-02-08 19:08:14,561 - EO_Pipeline - WARNING - [AUTH] FAILURE: Unknown user 'unknown_ghost'.
+2026-02-08 19:08:14,789 - EO_Pipeline - INFO - [AUTH] SUCCESS: User 'emanuele_admin' identified as 'admin'.
+2026-02-08 19:11:46,426 - EO_Pipeline - WARNING - [AUTH] FAILURE: Invalid password for 'emanuele_admin'.
+2026-02-08 19:55:22,785 - EO_Pipeline - WARNING - [AUTH] FAILURE: User 'hacker' is disabled/banned.
+2026-02-08 19:55:36,940 - EO_Pipeline - INFO - [AUTH] SUCCESS: User 'admin' identified as 'admin'.
+2026-02-08 19:56:04,310 - EO_Pipeline - INFO - [SOURCE] START: Generating simulated satellite product: Sentinel_2_7537_Orbit54
+2026-02-08 19:56:04,413 - EO_Pipeline - INFO - [SOURCE] SUCCESS: Product files saved to: simulation_data/ingest_landing_zone
+2026-02-08 19:57:30,923 - EO_Pipeline - INFO - [ACCESS] GRANTED: admin (admin) is authorized for 'process'.
+2026-02-08 19:57:30,931 - EO_Pipeline - INFO - [INGEST] START: Received ingestion request for product Sentinel_2_7537_Orbit54
+2026-02-08 19:57:30,936 - EO_Pipeline - INFO - [INGEST] SUCCESS: Product Sentinel_2_7537_Orbit54 is verified and staged. Initial Hash: 8c61a99882f8c583506a103e3a6a23370954e1e17eee1f686b6940a1a733f5a6
+2026-02-08 19:57:52,656 - EO_Pipeline - INFO - [ACCESS] GRANTED: admin (admin) is authorized for 'process'.
+2026-02-08 19:57:54,217 - EO_Pipeline - INFO - [PROCESS] START: Processing Level-0 -> Level-1 for Sentinel_2_7537_Orbit54
+2026-02-08 19:57:54,228 - EO_Pipeline - INFO - [PROCESS] SUCCESS: Sentinel_2_7537_Orbit54 is now Level-1 certified. New Hash: 8c61a99882f8c583506a103e3a6a23370954e1e17eee1f686b6940a1a733f5a6
+2026-02-08 19:58:49,944 - EO_Pipeline - INFO - [ACCESS] GRANTED: admin (admin) is authorized for 'write'.
+2026-02-08 19:58:51,451 - EO_Pipeline - INFO - [ARCHIVE] START: Securing product Sentinel_2_7537_Orbit54 in the vault...
+2026-02-08 19:58:51,473 - EO_Pipeline - INFO - [ARCHIVE] SUCCESS: Product Sentinel_2_7537_Orbit54 is now encrypted and vaulted.
+2026-02-08 19:58:51,474 - EO_Pipeline - INFO - [BACKUP] SUCCESS: Redundant copy created for product Sentinel_2_7537_Orbit54
+2026-02-08 19:59:48,473 - EO_Pipeline - INFO - [ACCESS] GRANTED: admin (admin) is authorized for 'process'.
+2026-02-08 20:01:04,846 - EO_Pipeline - INFO - [ACCESS] GRANTED: admin (admin) is authorized for 'manage_keys'.
+2026-02-08 20:01:06,856 - EO_Pipeline - INFO - [RESILIENCE] Initiating integrity audit for Sentinel_2_7537_Orbit54...
+2026-02-08 20:01:06,860 - EO_Pipeline - ERROR - [RESILIENCE] INTEGRITY FAILURE: Hash mismatch detected for Sentinel_2_7537_Orbit54!
+2026-02-08 20:01:06,860 - EO_Pipeline - INFO - [RESILIENCE] Attempting automated self-healing from backup...
+2026-02-08 20:01:06,863 - EO_Pipeline - INFO - [RESILIENCE] SUCCESS: Product Sentinel_2_7537_Orbit54 restored and healed.
+2026-02-08 20:01:30,416 - EO_Pipeline - INFO - [ACCESS] GRANTED: admin (admin) is authorized for 'manage_keys'.
+2026-02-08 20:06:50,493 - EO_Pipeline - INFO - [AUTH] SUCCESS: User 'admin' identified as 'admin'.
+2026-02-08 20:08:01,035 - EO_Pipeline - INFO - [AUTH] SUCCESS: User 'admin' identified as 'admin'.
+2026-02-08 20:08:31,469 - EO_Pipeline - INFO - [SOURCE] START: Generating simulated satellite product: Sentinel_2_7465_Orbit29
+2026-02-08 20:08:31,516 - EO_Pipeline - INFO - [SOURCE] SUCCESS: Product files saved to: simulation_data/ingest_landing_zone
+2026-03-02 17:34:04,915 - EO_Pipeline - INFO - [INGEST] START: Received ingestion request for product test_product_001
+2026-03-02 17:34:04,918 - EO_Pipeline - INFO - [INGEST] SUCCESS: Product test_product_001 is verified and staged. Initial Hash: 6fc733a9ce5d0ae3e1ad246fb21e498697a75694e5957f03b687bca628d12f56
+2026-03-02 17:34:04,921 - EO_Pipeline - INFO - [INGEST] START: Received ingestion request for product missing_data_product
+2026-03-02 17:34:04,922 - EO_Pipeline - ERROR - [INGEST] FAILED: Incomplete product. Missing files for missing_data_product.
+2026-03-02 17:34:04,924 - EO_Pipeline - INFO - [INGEST] START: Received ingestion request for product bad_schema_product
+2026-03-02 17:34:04,926 - EO_Pipeline - ERROR - [INGEST] FAILED: Schema validation failed for bad_schema_product. Error: Missing mandatory fields: {'sensor'}
+2026-03-02 17:34:26,864 - EO_Pipeline - INFO - [INGEST] START: Received ingestion request for product test_product_001
+2026-03-02 17:34:26,866 - EO_Pipeline - INFO - [INGEST] SUCCESS: Product test_product_001 is verified and staged. Initial Hash: 6fc733a9ce5d0ae3e1ad246fb21e498697a75694e5957f03b687bca628d12f56
+2026-03-02 17:34:26,869 - EO_Pipeline - INFO - [INGEST] START: Received ingestion request for product missing_data_product
+2026-03-02 17:34:26,870 - EO_Pipeline - ERROR - [INGEST] FAILED: Incomplete product. Missing files for missing_data_product.
+2026-03-02 17:34:26,873 - EO_Pipeline - INFO - [INGEST] START: Received ingestion request for product bad_schema_product
+2026-03-02 17:34:26,875 - EO_Pipeline - ERROR - [INGEST] FAILED: Schema validation failed for bad_schema_product. Error: Missing mandatory fields: {'sensor'}
+2026-03-02 17:42:16,336 - EO_Pipeline - INFO - [INGEST] START: Received ingestion request for product test_product_001
+2026-03-02 17:42:16,338 - EO_Pipeline - INFO - [INGEST] SUCCESS: Product test_product_001 is verified and staged. Initial Hash: 6fc733a9ce5d0ae3e1ad246fb21e498697a75694e5957f03b687bca628d12f56
+2026-03-02 17:42:16,341 - EO_Pipeline - INFO - [INGEST] START: Received ingestion request for product missing_data_product
+2026-03-02 17:42:16,342 - EO_Pipeline - ERROR - [INGEST] FAILED: Incomplete product. Missing files for missing_data_product.
+2026-03-02 17:42:16,344 - EO_Pipeline - INFO - [INGEST] START: Received ingestion request for product bad_schema_product
+2026-03-02 17:42:16,345 - EO_Pipeline - ERROR - [INGEST] FAILED: Schema validation failed for bad_schema_product. Error: Missing mandatory fields: {'sensor'}
+2026-03-02 17:51:37,910 - EO_Pipeline - INFO - [SOURCE] START: Generating simulated satellite product: Sentinel_2_4049_Orbit19
+2026-03-02 17:51:39,950 - EO_Pipeline - INFO - [SOURCE] SUCCESS: Product files saved to: simulation_data/ingest_landing_zone
+2026-03-02 18:03:36,581 - EO_Pipeline - WARNING - [AUTH] FAILURE: Unknown user 'hacker'.
+2026-03-02 18:03:36,890 - EO_Pipeline - WARNING - [AUTH] FAILURE: Unknown user 'hacker'.
+2026-03-02 18:03:37,197 - EO_Pipeline - WARNING - [AUTH] FAILURE: Unknown user 'hacker'.
+2026-03-02 18:03:37,505 - EO_Pipeline - WARNING - [AUTH] FAILURE: Unknown user 'hacker'.
+2026-03-02 18:03:37,814 - EO_Pipeline - WARNING - [AUTH] FAILURE: Unknown user 'hacker'.
+2026-03-02 18:03:37,817 - EO_Pipeline - WARNING - [AUTH] LOCKOUT: User 'hacker' temporarily locked after too many failed attempts.
+2026-03-02 18:05:21,623 - EO_Pipeline - INFO - [SOURCE] START: Generating simulated satellite product: Sentinel_2_8915_Orbit31
+2026-03-02 18:05:21,765 - EO_Pipeline - INFO - [SOURCE] SUCCESS: Product files saved to: simulation_data/ingest_landing_zone
+2026-03-02 18:05:41,089 - EO_Pipeline - INFO - [AUTH] SUCCESS: User 'admin' identified as 'admin'.
+2026-03-02 18:05:41,090 - EO_Pipeline - INFO - [ACCESS] GRANTED: admin (admin) is authorized for 'process'.
+2026-03-02 18:05:41,092 - EO_Pipeline - INFO - [INGEST] START: Received ingestion request for product Sentinel_2_8915_Orbit31
+2026-03-02 18:05:41,098 - EO_Pipeline - INFO - [INGEST] SUCCESS: Product Sentinel_2_8915_Orbit31 is verified and staged. Initial Hash: 56ec6d4a97ac09088606bab9e03744674e86d367336799ed2a08a4b12c58c1b6
+2026-03-02 18:05:41,099 - EO_Pipeline - INFO - [ACCESS] GRANTED: admin (admin) is authorized for 'process'.
+2026-03-02 18:06:03,660 - EO_Pipeline - INFO - [PROCESS] START: Processing Level-0 -> Level-1 for Sentinel_2_8915_Orbit31
+2026-03-02 18:06:03,676 - EO_Pipeline - INFO - [PROCESS] SUCCESS: Sentinel_2_8915_Orbit31 is now Level-1 certified. New Hash: 56ec6d4a97ac09088606bab9e03744674e86d367336799ed2a08a4b12c58c1b6
+2026-03-02 18:06:03,678 - EO_Pipeline - INFO - [ACCESS] GRANTED: admin (admin) is authorized for 'write'.
+2026-03-02 18:06:05,187 - EO_Pipeline - INFO - [ARCHIVE] START: Securing product Sentinel_2_8915_Orbit31 in the vault...
+2026-03-02 18:06:05,211 - EO_Pipeline - INFO - [ARCHIVE] SUCCESS: Product Sentinel_2_8915_Orbit31 is now encrypted and vaulted.
+2026-03-02 18:06:05,213 - EO_Pipeline - INFO - [BACKUP] SUCCESS: Redundant copy created for product Sentinel_2_8915_Orbit31
+2026-03-02 18:06:05,446 - EO_Pipeline - WARNING - [AUTH] FAILURE: Invalid password for 'admin'.
+2026-03-02 18:06:05,867 - EO_Pipeline - WARNING - [AUTH] FAILURE: Invalid password for 'admin'.
+2026-03-02 18:06:06,316 - EO_Pipeline - WARNING - [AUTH] FAILURE: Invalid password for 'admin'.
+2026-03-02 18:06:06,531 - EO_Pipeline - INFO - [ACCESS] GRANTED: admin (admin) is authorized for 'process'.
+2026-03-02 18:06:23,903 - EO_Pipeline - INFO - [ACCESS] GRANTED: admin (admin) is authorized for 'process'.
+2026-03-02 18:06:39,422 - EO_Pipeline - INFO - [ACCESS] GRANTED: admin (admin) is authorized for 'process'.
+2026-03-02 18:07:26,371 - EO_Pipeline - INFO - [INGEST] START: Received ingestion request for product test_product_001
+2026-03-02 18:07:26,373 - EO_Pipeline - INFO - [INGEST] SUCCESS: Product test_product_001 is verified and staged. Initial Hash: 6fc733a9ce5d0ae3e1ad246fb21e498697a75694e5957f03b687bca628d12f56
+2026-03-02 18:07:26,375 - EO_Pipeline - INFO - [INGEST] START: Received ingestion request for product missing_data_product
+2026-03-02 18:07:26,377 - EO_Pipeline - ERROR - [INGEST] FAILED: Incomplete product. Missing files for missing_data_product.
+2026-03-02 18:07:26,379 - EO_Pipeline - INFO - [INGEST] START: Received ingestion request for product bad_schema_product
+2026-03-02 18:07:26,380 - EO_Pipeline - ERROR - [INGEST] FAILED: Schema validation failed for bad_schema_product. Error: Missing mandatory fields: {'sensor'}
+2026-03-02 18:09:19,283 - EO_Pipeline - INFO - [SOURCE] START: Generating simulated satellite product: Sentinel_2_5744_Orbit64
+2026-03-02 18:09:19,409 - EO_Pipeline - INFO - [SOURCE] SUCCESS: Product files saved to: simulation_data/ingest_landing_zone
+2026-03-02 18:09:27,517 - EO_Pipeline - INFO - [AUTH] SUCCESS: User 'admin' identified as 'admin'.
+2026-03-02 18:09:27,518 - EO_Pipeline - INFO - [ACCESS] GRANTED: admin (admin) is authorized for 'process'.
+2026-03-02 18:09:27,520 - EO_Pipeline - INFO - [INGEST] START: Received ingestion request for product Sentinel_2_5744_Orbit64
+2026-03-02 18:09:27,522 - EO_Pipeline - INFO - [INGEST] SUCCESS: Product Sentinel_2_5744_Orbit64 is verified and staged. Initial Hash: 43730d45adeaac71f02d7ec7441ce281e1190df244494750b6c0ba44263924e1
+2026-03-02 18:09:27,523 - EO_Pipeline - INFO - [ACCESS] GRANTED: admin (admin) is authorized for 'process'.
+2026-03-02 18:09:50,088 - EO_Pipeline - INFO - [PROCESS] START: Processing Level-0 -> Level-1 for Sentinel_2_5744_Orbit64
+2026-03-02 18:09:50,096 - EO_Pipeline - INFO - [PROCESS] SUCCESS: Sentinel_2_5744_Orbit64 is now Level-1 certified. New Hash: 43730d45adeaac71f02d7ec7441ce281e1190df244494750b6c0ba44263924e1
+2026-03-02 18:09:50,098 - EO_Pipeline - INFO - [ACCESS] GRANTED: admin (admin) is authorized for 'write'.
+2026-03-02 18:09:51,603 - EO_Pipeline - INFO - [ARCHIVE] START: Securing product Sentinel_2_5744_Orbit64 in the vault...
+2026-03-02 18:09:51,608 - EO_Pipeline - INFO - [ARCHIVE] SUCCESS: Product Sentinel_2_5744_Orbit64 is now encrypted and vaulted.
+2026-03-02 18:09:51,609 - EO_Pipeline - INFO - [BACKUP] SUCCESS: Redundant copy created for product Sentinel_2_5744_Orbit64
+2026-03-02 18:09:51,835 - EO_Pipeline - WARNING - [AUTH] FAILURE: Invalid password for 'admin'.
+2026-03-02 18:09:52,286 - EO_Pipeline - WARNING - [AUTH] FAILURE: Invalid password for 'admin'.
+2026-03-02 18:09:52,738 - EO_Pipeline - WARNING - [AUTH] FAILURE: Invalid password for 'admin'.
+2026-03-02 18:09:52,954 - EO_Pipeline - INFO - [ACCESS] GRANTED: admin (admin) is authorized for 'process'.
+2026-03-02 18:10:01,791 - EO_Pipeline - INFO - [ACCESS] GRANTED: admin (admin) is authorized for 'process'.
+2026-03-05 14:35:28,992 - EO_Pipeline - INFO - [INGEST] START: Received ingestion request for product test_product_001
+2026-03-05 14:35:28,994 - EO_Pipeline - INFO - [INGEST] SUCCESS: Product test_product_001 is verified and staged. Initial Hash: 6fc733a9ce5d0ae3e1ad246fb21e498697a75694e5957f03b687bca628d12f56
+2026-03-05 14:35:28,996 - EO_Pipeline - INFO - [INGEST] START: Received ingestion request for product missing_data_product
+2026-03-05 14:35:28,997 - EO_Pipeline - ERROR - [INGEST] FAILED: Incomplete product. Missing files for missing_data_product.
+2026-03-05 14:35:28,999 - EO_Pipeline - INFO - [INGEST] START: Received ingestion request for product bad_schema_product
+2026-03-05 14:35:28,999 - EO_Pipeline - ERROR - [INGEST] FAILED: Schema validation failed for bad_schema_product. Error: Missing mandatory fields: {'sensor'}

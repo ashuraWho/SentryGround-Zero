@@ -1,0 +1,80 @@
+Start testing: Mar 24 19:01 CET
+----------------------------------------------------------
+1/3 Testing: obc_json_parse_self
+1/3 Test: obc_json_parse_self
+Command: "/Users/ashura/Desktop/Project/Sentry-Sat/core_engine/build2/obc_json_check"
+Directory: /Users/ashura/Desktop/Project/Sentry-Sat/core_engine/build2
+"obc_json_parse_self" start time: Mar 24 19:01 CET
+Output:
+----------------------------------------------------------
+<end of output>
+Test time =   0.35 sec
+----------------------------------------------------------
+Test Passed.
+"obc_json_parse_self" end time: Mar 24 19:01 CET
+"obc_json_parse_self" time elapsed: 00:00:00
+----------------------------------------------------------
+
+2/3 Testing: sentry_sat_sim_smoke
+2/3 Test: sentry_sat_sim_smoke
+Command: "/Users/ashura/Desktop/Project/Sentry-Sat/core_engine/build2/sentry_sat_sim"
+Directory: /Users/ashura/Desktop/Project/Sentry-Sat/core_engine/build2
+"sentry_sat_sim_smoke" start time: Mar 24 19:01 CET
+Output:
+----------------------------------------------------------
+==========================================
+Sentry-Sat OBC Simulator v1.0 Boot Sequence
+==========================================
+[TrustZone] Activating Physical Unclonable Function (PUF)...
+[TrustZone] Device Root Key provisioned via PUF.
+[TrustZone] Initializing Crypto Signer Enclave...
+[OBC-AI] Initializing Edge AI Inference Engine...
+[OBC-AI] Meta not found ("../../ai_training/obc_model_meta.json"); using default threshold=0.05
+[OBC-AI] Built without SENTRY_HAVE_TFLITE — heuristic backend only.
+==========================================
+STARTING MISSION LOOP
+==========================================
+
+--- [Cycle 1] Normal Sensor Frame (28×28) ---
+[OBC-AI] Running heuristic inference (no TFLite)...
+[OBC-AI] Frame score (heuristic): 0
+[TrustZone] Cryptographically Signing Telemetry Payload...
+[Telemetry] Anomaly: 0 MSE: 0 MAC: b7f06d8d2100407a5d2c25fe80f36dfdcd029938cf7cb08a2cd7ebd7b4042b5c
+[json] {"anomaly":false,"cycle_id":"T+001","inference_backend":"heuristic_linear","reconstruction_mse":0.0,"signature_hex":"b7f06d8d2100407a5d2c25fe80f36dfdcd029938cf7cb08a2cd7ebd7b4042b5c","telemetry_schema":"sentry_sat.obc.v1"}
+
+--- [Cycle 2] Suspicious Sensor Frame (row stripe) ---
+[OBC-AI] Running heuristic inference (no TFLite)...
+[OBC-AI] Frame score (heuristic): 0.357143
+[OBC-AI] ALERT: Anomaly suspected (heuristic).
+[TrustZone] Cryptographically Signing Telemetry Payload...
+[Telemetry] Anomaly: 1 MSE: 0.357143 MAC: 2c2d28041534eda2563c25031d3189c4f5557fa49bf7484404d0ee6d93df319d
+[json] {"anomaly":true,"cycle_id":"T+002","inference_backend":"heuristic_linear","reconstruction_mse":0.3571428656578064,"signature_hex":"2c2d28041534eda2563c25031d3189c4f5557fa49bf7484404d0ee6d93df319d","telemetry_schema":"sentry_sat.obc.v1"}
+
+==========================================
+SYSTEM SHUTDOWN
+==========================================
+<end of output>
+Test time =   0.36 sec
+----------------------------------------------------------
+Test Passed.
+"sentry_sat_sim_smoke" end time: Mar 24 19:01 CET
+"sentry_sat_sim_smoke" time elapsed: 00:00:00
+----------------------------------------------------------
+
+3/3 Testing: sentry_telemetry_json_lines
+3/3 Test: sentry_telemetry_json_lines
+Command: "/opt/anaconda3/bin/python3.13" "/Users/ashura/Desktop/Project/Sentry-Sat/core_engine/tests/check_telemetry_json.py" "/Users/ashura/Desktop/Project/Sentry-Sat/core_engine/build2/sentry_sat_sim"
+Directory: /Users/ashura/Desktop/Project/Sentry-Sat/core_engine/build2
+"sentry_telemetry_json_lines" start time: Mar 24 19:01 CET
+Output:
+----------------------------------------------------------
+OK: 2 json telemetry lines
+<end of output>
+Test time =   0.04 sec
+----------------------------------------------------------
+Test Passed.
+"sentry_telemetry_json_lines" end time: Mar 24 19:01 CET
+"sentry_telemetry_json_lines" time elapsed: 00:00:00
+----------------------------------------------------------
+
+End testing: Mar 24 19:01 CET
