@@ -1,0 +1,15 @@
+[2026-03-27T20:14:04.584689] [SYSTEM] Mission Control initialized
+[2026-03-27T20:14:04.585035] [SYSTEM] Space Segment: Sentry-Sat OBC READY
+[2026-03-27T20:14:04.585083] [SYSTEM] Ground Segment: Secure EO Pipeline READY
+[2026-03-27T20:14:06.108207] [OBC] Sentry-Sat OBC initialized successfully
+[2026-03-27T20:14:14.392886] [SYSTEM] Mission Control initialized
+[2026-03-27T20:14:14.393222] [SYSTEM] Space Segment: Sentry-Sat OBC READY
+[2026-03-27T20:14:14.393268] [SYSTEM] Ground Segment: Secure EO Pipeline READY
+[2026-03-27T20:14:15.922051] [OBC] Sentry-Sat OBC initialized successfully
+[2026-03-27T20:14:15.923959] [OBC] Cycle T+001 completed: anomaly=False
+[2026-03-27T20:14:15.925591] [OBC] Cycle T+002 completed: anomaly=False
+[2026-03-27T20:14:15.927428] [OBC] Cycle T+003 completed: anomaly=False
+[2026-03-27T20:14:15.931763] [IDS-CROSS] Correlation analysis complete: factor=0.00%
+[2026-03-27T20:14:15.932499] [ATTACK] Sensor sabotage injected on Sentry-Sat
+[2026-03-27T20:14:15.933713] [OBC] Cycle T+004 completed: anomaly=False
+[2026-03-27T20:14:15.936206] [IDS-CROSS] Correlation analysis complete: factor=8.57%

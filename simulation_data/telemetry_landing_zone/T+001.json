@@ -1,0 +1,9 @@
+{
+  "telemetry_schema": "sentry_sat.obc.v1",
+  "cycle_id": "T+001",
+  "anomaly": false,
+  "signature_hex": "b7f06d8d2100407a5d2c25fe80f36dfdcd029938cf7cb08a2cd7ebd7b4042b5c",
+  "reconstruction_mse": 0.001,
+  "inference_backend": "heuristic",
+  "timestamp": "2026-03-27T20:14:15.922845"
+}
