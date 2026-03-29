@@ -1,102 +1,69 @@
-# Sentry-Ground Zero
+# ✨ Sentry-Ground Zero V5: The Web Dashboard
 
-## End-to-End Secure Earth Observation Ecosystem (Space-to-Vault)
+**Sentry-Ground Zero** is an interconnected, end-to-end Deep Space mission architecture. It represents the ultimate synthesis of **Physics, Astrophysics, Machine Learning, and Cybersecurity**.
 
-### Overview
+V4 evolves the project into a **Distributed Constellation Swarm** of microservices, transforming a standard satellite simulation into a multi-domain fleet composed of:
+- **Sentry-Astro:** A Precision Astrophysics Probe hunting for Dark Matter.
+- **Sentry-Exo:** A Stellar Observatory analyzing Exoplanetary Transits (Keplerian lightcurves).
+- **Sentry-EO:** An Earth Observation sentinel tracking atmospheric and surface anomalies.
 
-**Sentry-Ground Zero** is a unified mission control system that integrates:
+## 🌌 The Scientific Objective (Nature & Astrophysics)
+The Space Segment is containerized in a modular C++ engine that dynamically generates different mathematical and physical realities depending on its mission profile:
+1. **Navarro-Frenk-White (NFW)** density profiles for Dark Matter subhalos.
+2. **U-shaped Keplerian Flux Dips** representing transiting Exoplanets.
+3. **Multi-spectral Albedo Tracking** for Earth terrain simulations.
 
-- **Space Segment (Sentry-Sat)**: On-Board Computer with AI-based anomaly detection, PUF-based cryptographic signing, and 28×28 sensor frame acquisition
-- **Ground Segment (Secure EO Pipeline)**: Telemetry ingestion, HMAC-SHA256 signature verification, AES-128 encryption, IDS correlation, and resilient backup/recovery
+All physical models are mathematically superimposed onto natural **Poisson photon noise**. The Edge-AI Machine Learning engine hunts for Cosmic Ray strikes or anomalous transit interruptions on the edge.
 
-### Quick Start
+## 🛡️ The Defense Architecture (Cybersecurity & ML)
+Because astronomical discoveries are priceless, the data is constantly under threat by Advanced Persistent Threats (APTs) seeking to steal, forge, or censor the discovery prior to publication.
+1. **Space-to-Ground CCSDS Telemetry:** Data is downlinked using authentic binary Space Packets.
+2. **Post-Quantum Cryptography (PQC):** The data archives are encrypted using a simulated FIPS 203 ML-KEM (Kyber-768) hybrid protocol against *Harvest Now, Decrypt Later* attacks.
+3. **Machine Learning IDS (Isolation Forest):** An Unsupervised ML model actively profiles the behaviors of Mission Control operators to detect insider threats.
 
+## ⚛️ The Physical Firewall 
+What if quantum hackers steal the PQC keys and forge a fake image without breaking the cryptography?
+Sentry-Ground Zero employs a **Physical-Layer Cybersecurity** defense. 
+Upon ingestion, the Ground Segment routes the Numpy payload to a specific **Scientific Validator** based on the sender's Mission Profile. By computing the **Laplacian gradients** of the data matrices, the Firewall enforces:
+1. **Virial Theorem & Density Laws** on Dark Matter payloads.
+2. **Smooth Keplerian Transitions** to prevent impossible square-wave forgery on Exoplanet transits.
+3. **Albedo Maximum Constraints** on Earth observation products.
+
+Malformed data triggers massive non-physical gradient spikes, immediately dropping the payload—**The laws of Physics act as the ultimate cryptographic hash.**
+
+---
+
+## 🚀 Getting Started (The Constellation Swarm + Dashboard)
+
+The architecture is fully containerized with `docker-compose`:
+1. **`db`**: A PostgreSQL 15 audit and telemetry log.
+2. **`sentry-astro-1`**: SentrySat executing the Dark Matter C++ profile.
+3. **`sentry-exo-1`**: SentrySat executing the Exoplanet C++ profile.
+4. **`sentry-eo-1`**: SentrySat executing the Earth Observation C++ profile.
+5. **`ground-segment`**: The interactive Python Async Mission Control Gateway.
+6. **`web-dashboard`**: A LIVE Streamlit UI rendering scientific telemetry in the browser.
+
+### Boot the Constellation
+> **IMPORTANT:** Ensure Docker Desktop is running on your machine before executing.
 ```bash
-# Install dependencies
-pip install rich
-
-# Run unified mission control
-python main.py
-
-# Available commands:
-# - obc_init        : Initialize Sentry-Sat OBC
-# - obc_cycle       : Run single sensor acquisition
-# - obc_mission     : Run full mission loop
-# - full_mission_attack : Execute cross-segment attack simulation
-# - ground_receive  : Receive and verify telemetry
-# - ids_correlation : Run IDS correlation analysis
-# - recover_mission : Recover from attack
+docker-compose up --build -d
 ```
 
-### Architecture
-
+### View Live Scientific Telemetry
+Open your browser and navigate to the Mission Control Monitor:
 ```
-┌─────────────────────────────────────────────┐
-│           SPACE SEGMENT (Sentry-Sat)         │
-│  Sensor → InferenceEngine → CryptoSigner    │
-│           (Autoencoder)    (PUF+HMAC)       │
-└────────────────────┬────────────────────────┘
-                     │ X-Band Downlink
-                     ▼
-┌─────────────────────────────────────────────┐
-│          GROUND SEGMENT (Secure EO)          │
-│  TelemetryBridge → SignatureVerification    │
-│                   ↓                         │
-│  EnhancedIDS ← Correlation Analysis          │
-│                   ↓                         │
-│  ResilienceManager ← Backup/Restore          │
-└─────────────────────────────────────────────┘
+http://localhost:8501
 ```
 
-### Security Controls
-
-Mapped to **ISO 27001:2013** and **NIST CSF v1.1**:
-
-| Control | Implementation |
-|---------|---------------|
-| HMAC-SHA256 Signing | `crypto_signer.cpp`, `signature_verification.py` |
-| Chain of Custody | `telemetry_bridge.py`, `mission_control.py` |
-| Key Rotation | `security.py:rotate_keys()` |
-| IDS Correlation | `enhanced_ids.py` |
-| Backup/Restore | `backup_system.py` |
-
-See [docs/SECURITY_CONTROLS.md](docs/SECURITY_CONTROLS.md) for full documentation.
-
-### Directory Structure
-
-```
-SentryGround-Zero/
-├── main.py                    # Unified Mission Control
-├── docs/
-│   └── SECURITY_CONTROLS.md   # ISO 27001/NIST CSF mapping
-├── space_segment/             # Sentry-Sat OBC (C++)
-│   ├── sentry_sat/
-│   └── security_enclave/
-└── ground_segment/            # Secure EO Pipeline (Python)
-    └── secure_eo_pipeline/
-        ├── telemetry_bridge.py
-        ├── signature_verification.py
-        └── enhanced_ids.py
-```
-
-### Attack Simulation
-
-The system includes comprehensive attack simulation:
-
+### Trigger Subsystem Downlinks
+Attach to the interactive Mission Control terminal:
 ```bash
-# Execute full attack kill chain
-> full_mission_attack
-
-# Or run individual phases:
-> inject_anomaly      # Sensor sabotage
-> mitm_attack         # Man-in-the-Middle
-> ids_correlation     # Detection by IDS
-> recover_mission     # Recovery via backup
+docker attach sentryground-zero-ground-segment-1
 ```
 
-### Security Compliance
+Inside the console, run:
+- `scan` -> Randomly assigns the downlink task to one of the satellites in the swarm. Watch the Dashboard instantly render the NFW Halo or Keplerian lightcurve!
+- `ingest` -> Validates the PQC signature **AND the laws of Physics**.
+- `archive` -> Securely encrypts the scientific data.
+- `ids` -> Scans the logs using the Scikit-Learn Isolation Forest.
 
-- **ISO 27001:2013**: 17 control objectives implemented
-- **NIST CSF v1.1**: All 5 functions (Identify, Protect, Detect, Respond, Recover)
-
-See [docs/SECURITY_CONTROLS.md](docs/SECURITY_CONTROLS.md) for complete control mapping.

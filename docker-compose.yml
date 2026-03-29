@@ -1,0 +1,95 @@
+version: '3.8'
+
+services:
+  db:
+    image: postgres:15-alpine
+    environment:
+      POSTGRES_USER: sentry_admin
+      POSTGRES_PASSWORD: secure_password_123
+      POSTGRES_DB: eo_security
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U sentry_admin -d eo_security"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  # --- SATELLITE CONSTELLATION SWARM ---
+  
+  sentry-astro-1:
+    build: 
+      context: ./SentrySat
+    ports:
+      - "8080:8080"
+    environment:
+      - MISSION_PROFILE=dark_matter
+      - PYTHONUNBUFFERED=1
+
+  sentry-exo-1:
+    build: 
+      context: ./SentrySat
+    ports:
+      - "8081:8080"
+    environment:
+      - MISSION_PROFILE=exoplanet
+      - PYTHONUNBUFFERED=1
+
+  sentry-eo-1:
+    build: 
+      context: ./SentrySat
+    ports:
+      - "8082:8080"
+    environment:
+      - MISSION_PROFILE=earth
+      - PYTHONUNBUFFERED=1
+
+  # --- MISSION CONTROL ---
+  
+  ground-segment:
+    build:
+      context: ./EO_DataSecurity
+    # These flags are critical to let the user attach and play the CLI loop
+    stdin_open: true 
+    tty: true
+    environment:
+      - SPACE_SEGMENT_HOSTS=sentry-astro-1,sentry-exo-1,sentry-eo-1
+      - PG_HOST=db
+      - PG_USER=sentry_admin
+      - PG_PASSWORD=secure_password_123
+      - PG_DBNAME=eo_security
+      # Force use of structured DB and ML IDS
+      - USE_SQLITE=1
+      - USE_ML=1
+      - PYTHONUNBUFFERED=1
+    volumes:
+      - eo_data:/app/simulation_data
+    depends_on:
+      db:
+        condition: service_healthy
+      sentry-astro-1:
+        condition: service_started
+      sentry-exo-1:
+        condition: service_started
+      sentry-eo-1:
+        condition: service_started
+
+  web-dashboard:
+    build:
+      context: ./EO_DataSecurity
+    command: streamlit run dashboard.py --server.port=8501 --server.address=0.0.0.0
+    ports:
+      - "8501:8501"
+    volumes:
+      - eo_data:/app/simulation_data
+    environment:
+      - PG_HOST=db
+      - PG_USER=sentry_admin
+      - PG_PASSWORD=secure_password_123
+      - PG_DBNAME=eo_security
+    depends_on:
+      - ground-segment
+
+volumes:
+  pgdata:
+  eo_data:
