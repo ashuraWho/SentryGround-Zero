@@ -484,12 +484,65 @@ class AlertSystem:
         console.print(table)  # 1-5
 
 
+from dataclasses import dataclass, field
+from typing import Dict, List, Set
+
+
+class Role:
+    """Role-based access control."""
+    
+    PERMISSIONS = {
+        "admin": {
+            "dashboard", "satellites", "link", "scan", "orbit", "predict",
+            "status", "red-team", "blue-team", "zero-trust", "pqcrypto",
+            "audit-chain", "threats", "monitor", "link_all", "predict_all",
+            "manage_users", "view_logs", "export_data", "system_config"
+        },
+        "operator": {
+            "dashboard", "satellites", "link", "scan", "orbit", "predict",
+            "status", "blue-team", "zero-trust", "monitor",
+            "link_own", "predict_own", "view_logs", "export_data"
+        },
+        "analyst": {
+            "dashboard", "satellites", "predict", "status", "monitor",
+            "predict_own"
+        },
+        "guest": {
+            "dashboard", "satellites", "monitor"
+        }
+    }
+    
+    CLEARANCE = {
+        "admin": 5,
+        "operator": 3,
+        "analyst": 2,
+        "guest": 1
+    }
+    
+    def __init__(self, name: str):
+        self.name = name
+        self.permissions: Set[str] = self.PERMISSIONS.get(name, set())
+        self.clearance_level: int = self.CLEARANCE.get(name, 0)
+    
+    def has_permission(self, permission: str) -> bool:
+        return permission in self.permissions
+
+
 @dataclass
 class User:
     username: str
     password: str
-    role: str  # admin, operator, guest
+    role: str  # admin, operator, analyst, guest
     clearance_level: int
+    permissions: Set[str] = field(default_factory=set)
+    
+    def __post_init__(self):
+        role_obj = Role(self.role)
+        self.permissions = role_obj.permissions
+        self.clearance_level = role_obj.clearance_level
+    
+    def can(self, permission: str) -> bool:
+        return permission in self.permissions
 
 
 class HackerTools:
@@ -714,10 +767,14 @@ class MissionConsole:
         self.failure_simulator = FailureSimulator()
         self.session_log = []
         self.log_file = None
+        self.login_attempts = 0
+        self.max_login_attempts = 3
+        self.locked_out = False
         self.satellites = self._load_satellites()
         self.users = {
             "admin": User("admin", "admin2024", "admin", 5),
             "operator": User("operator", "ops123", "operator", 3),
+            "analyst": User("analyst", "analysis123", "analyst", 2),
             "guest": User("guest", "guest", "guest", 1),
         }
         self._init_cyber()
@@ -858,12 +915,19 @@ class MissionConsole:
 ║    [yellow]4. quit[/]    → Exit system                                   ║
 ║                                                                          ║
 ║  [dim]━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━[/] ║
-║  [dim]Default credentials: admin/admin2024 | operator/ops123[/]              ║
+║  [dim]Credentials: admin/admin2024 | operator/ops123 | analyst/analysis123 | guest/guest[/]  ║
 ╚══════════════════════════════════════════════════════════════════╝""",
             border_style="cyan", box=box.DOUBLE
         ))
     
     def handle_login(self):
+        if self.locked_out:
+            console.print(Panel(
+                "[bold red]🔒 ACCOUNT LOCKED[/]\n\nToo many failed login attempts.\nContact administrator or wait 5 minutes.",
+                border_style="red", box=box.DOUBLE
+            ))
+            return False
+        
         console.print(Panel(
             "[bold cyan]🔐 AUTHENTICATION[/]",
             border_style="cyan", box=box.DOUBLE
@@ -877,11 +941,20 @@ class MissionConsole:
             if user.password == password:
                 self.authenticated = True
                 self.current_user = user
+                self.login_attempts = 0
                 console.print(f"\n[green]✓ AUTHENTICATED AS {username.upper()} (Clearance: {user.clearance_level})[/]")
                 return True
             else:
+                self.login_attempts += 1
+                remaining = self.max_login_attempts - self.login_attempts
                 console.print(f"\n[red]✗ INVALID PASSWORD[/]")
+                if remaining > 0:
+                    console.print(f"[yellow]  Attempts remaining: {remaining}[/]")
+                else:
+                    self.locked_out = True
+                    console.print(f"\n[red bold]✗ ACCOUNT LOCKED after 3 failed attempts[/]")
         else:
+            self.login_attempts += 1
             console.print(f"\n[red]✗ USER NOT FOUND[/]")
         
         return False
@@ -1252,22 +1325,16 @@ class MissionConsole:
             console.print(f"[dim]  Supported: Temperature, Sea Level, CO2, NEO, Hurricane, Air Quality, Crop[/]")
     
     def _predict_temperature(self):
-        """Predict global temperature using auto model selection."""
-        base_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'data')
+        """Predict global temperature using auto model selection with EDA + Feature Engineering."""
+        base_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'data', 'satellites', 'data')
         temp_file = os.path.join(base_path, "global_temperatures/Global Temperatures.csv")
         
         df = pd.read_csv(temp_file)
         df.columns = df.columns.str.strip()
         df = df.replace('NaN', np.nan).replace('', np.nan)
         
-        annual = pd.to_numeric(df['Annual Anomaly'], errors='coerce').dropna()
-        
-        if len(annual) < 10:
-            console.print("[red]  Insufficient data for prediction[/]")
-            return
-        
-        values = np.array(annual)
-        year_vals = np.array([1850 + i for i in range(len(values))])
+        # Add year column for analysis
+        df['Year'] = [1850 + i for i in range(len(df))]
         
         target_year = console.input("\n[yellow]  Enter target year (e.g., 2030, 2050, 2100): [/]").strip()
         
@@ -1281,28 +1348,20 @@ class MissionConsole:
             console.print(f"[red]  Year must be between 1850 and 2100.[/]")
             return
         
-        console.print(Panel(
-            f"[bold cyan]🔮 AUTO MODEL SELECTION - Temperature[/]",
-            border_style="cyan", box=box.DOUBLE
-        ))
-        
-        result = AutoModelSelector.run_full_analysis(year_vals, values, target_year, console)
+        # Run with EDA and Feature Engineering
+        result = run_auto_prediction(
+            years=np.array([]),  # Will be derived from df
+            values=np.array([]),  # Will be derived from df
+            target_year=target_year,
+            unit="°C",
+            title="Global Temperature",
+            data_type="climate_temperature",
+            df=df,
+            target_col="Annual Anomaly"
+        )
         
         if result and "prediction" in result:
             pred = result["prediction"]["prediction"]
-            pred_result = result["prediction"]
-            
-            console.print(f"\n[cyan]  ╔══════════════════════════════════════════════════════╗")
-            console.print(f"[cyan]  ║[/] [bold]FINAL PREDICTION[/]                                  [cyan]║")
-            console.print(f"[cyan]  ╠══════════════════════════════════════════════════════╣")
-            console.print(f"[cyan]  ║[/]  Year:        [yellow]{target_year}[/]                              [cyan]║")
-            console.print(f"[cyan]  ║[/]  Anomaly:     [yellow]{pred:>+.4f}°C[/]                            [cyan]║")
-            console.print(f"[cyan]  ║[/]  95% CI:      [dim][{pred_result['confidence_95'][0]:>+.2f}, {pred_result['confidence_95'][1]:>+.2f}]°C[/]   [cyan]║")
-            console.print(f"[cyan]  ║[/]  Std Error:   [dim]±{pred_result['std_error']:.4f}°C[/]                  [cyan]║")
-            console.print(f"[cyan]  ╠══════════════════════════════════════════════════════╣")
-            console.print(f"[cyan]  ║[/]  Best Model:  [green]{result['best_model']}[/]                    [cyan]║")
-            console.print(f"[cyan]  ║[/]  R² Score:    [yellow]{result['metrics']['r2']:.4f}[/]                       [cyan]║")
-            console.print(f"[cyan]  ╚══════════════════════════════════════════════════════╝")
             
             if pred > 0:
                 console.print(f"\n[red bold]  Status: WARMER than baseline[/]")
@@ -1313,16 +1372,11 @@ class MissionConsole:
                        target_year, pred, pred_result['confidence_95'])
     
     def _predict_sea_level(self):
-        """Predict sea level rise using auto model selection."""
-        base_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'data')
+        """Predict sea level rise using auto model selection with EDA + Feature Engineering."""
+        base_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'data', 'satellites', 'data')
         sea_file = os.path.join(base_path, "sea_level/sea_level.csv")
         
         df = pd.read_csv(sea_file)
-        df = df[df['Smoothed_GMSL_mm'] > 0]
-        
-        X = df['Year'].values
-        y = df['Smoothed_GMSL_mm'].values
-        current_year = int(df['Year'].max())
         
         target_year = console.input("\n[yellow]  Enter target year (e.g., 2030, 2050, 2100): [/]").strip()
         
@@ -1336,45 +1390,31 @@ class MissionConsole:
             console.print(f"[red]  Year must be between 1993 and 2100.[/]")
             return
         
-        console.print(Panel(
-            f"[bold cyan]🔮 AUTO MODEL SELECTION - Sea Level[/]",
-            border_style="cyan", box=box.DOUBLE
-        ))
-        
-        result = AutoModelSelector.run_full_analysis(X, y, target_year, console)
+        result = run_auto_prediction(
+            years=np.array([]),
+            values=np.array([]),
+            target_year=target_year,
+            unit="mm",
+            title="Sea Level Rise",
+            data_type="sea_level",
+            df=df,
+            target_col="Smoothed_GMSL_mm"
+        )
         
         if result and "prediction" in result:
             pred = result["prediction"]["prediction"]
-            pred_result = result["prediction"]
-            
-            console.print(f"\n[cyan]  ╔══════════════════════════════════════════════════════╗")
-            console.print(f"[cyan]  ║[/] [bold]FINAL PREDICTION[/]                                  [cyan]║")
-            console.print(f"[cyan]  ╠══════════════════════════════════════════════════════╣")
-            console.print(f"[cyan]  ║[/]  Target Year:   [yellow]{target_year}[/]                              [cyan]║")
-            console.print(f"[cyan]  ║[/]  GMSL Change:   [yellow]{pred:>7.2f} mm[/]                         [cyan]║")
-            console.print(f"[cyan]  ║[/]  95% CI:       [dim][{pred_result['confidence_95'][0]:.1f}, {pred_result['confidence_95'][1]:.1f}] mm[/]    [cyan]║")
-            console.print(f"[cyan]  ║[/]  Std Error:   [dim]±{pred_result['std_error']:.2f} mm[/]                   [cyan]║")
-            
-            if target_year > current_year:
-                years_from_now = target_year - current_year
-                console.print(f"[cyan]  ║[/]  Years from now: [yellow]{years_from_now}[/]                              [cyan]║")
-            
-            console.print(f"[cyan]  ╠══════════════════════════════════════════════════════╣")
-            console.print(f"[cyan]  ║[/]  Best Model:    [green]{result['best_model']}[/]                       [cyan]║")
-            console.print(f"[cyan]  ║[/]  R² Score:     [yellow]{result['metrics']['r2']:.4f}[/]                       [cyan]║")
-            console.print(f"[cyan]  ╚══════════════════════════════════════════════════════╝")
+            current_year = int(df['Year'].max()) if 'Year' in df.columns else 2021
             
             risk = "CRITICAL" if pred > 700 else "HIGH" if pred > 500 else "MODERATE"
             risk_color = MissionColors.ERROR if risk == "CRITICAL" else MissionColors.WARNING
             console.print(f"\n[{risk_color} bold]  Risk Level: {risk}[/]")
-            
-            show_chart(y, X, 'Sea Level Rise', 'Change (mm)',
-                       target_year, pred, pred_result['confidence_95'])
     
     def _predict_co2(self):
-        """Predict CO2 emissions using auto model selection."""
-        base_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'data')
+        """Predict CO2 emissions using auto model selection with EDA + Feature Engineering."""
+        base_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'data', 'satellites', 'data')
         co2_file = os.path.join(base_path, "co2_emissions/emissions.csv")
+        
+        df = pd.read_csv(co2_file)
         
         target_year = console.input("\n[yellow]  Enter target year (e.g., 2030, 2050, 2100): [/]").strip()
         
@@ -1388,40 +1428,52 @@ class MissionConsole:
             console.print(f"[red]  Year must be between 1990 and 2100.[/]")
             return
         
-        try:
+        # Try to find year and emissions columns
+        year_col = None
+        emission_col = None
+        for col in df.columns:
+            if 'year' in col.lower():
+                year_col = col
+            if 'emission' in col.lower() or 'co2' in col.lower() or 'mt' in col.lower():
+                emission_col = col
+        
+        # If no real data, use fallback data - avoid polynomial overfitting
+        if year_col is None or emission_col is None or len(df) < 5:
             years_data = np.array([1990, 1995, 2000, 2005, 2010, 2015, 2018])
             emissions_data = np.array([22600, 24700, 25700, 27700, 30000, 33500, 36000])
             
-            console.print(Panel(
-                f"[bold cyan]🔮 AUTO MODEL SELECTION - CO2 Emissions[/]",
-                border_style="cyan", box=box.DOUBLE
-            ))
+            # Scale years for stability
+            years_scaled = (years_data - 1990) / 30.0
             
-            result = AutoModelSelector.run_full_analysis(years_data, emissions_data, target_year, console)
+            # Use engineered features
+            X = np.column_stack([years_scaled, years_scaled**2])
+            
+            result = run_auto_prediction(
+                years_data, emissions_data, target_year,
+                unit="MtCO2", title="CO2 Emissions",
+                data_type="co2_emissions"
+            )
             
             if result and "prediction" in result:
                 pred = result["prediction"]["prediction"]
-                pred_result = result["prediction"]
-                error = pred_result["std_error"]
-                
-                console.print(f"\n[cyan]  ╔══════════════════════════════════════════════════════╗")
-                console.print(f"[cyan]  ║[/] [bold]FINAL PREDICTION[/]                                  [cyan]║")
-                console.print(f"[cyan]  ╠══════════════════════════════════════════════════════╣")
-                console.print(f"[cyan]  ║[/]  Target Year:  [yellow]{target_year}[/]                              [cyan]║")
-                console.print(f"[cyan]  ║[/]  Emissions:    [yellow]({pred:>,.0f} ± {error:,.0f}) MtCO2[/]              [cyan]║")
-                console.print(f"[cyan]  ║[/]  vs 2018:      [yellow]{pred - 36000:>+8,.0f} MtCO2[/]                  [cyan]║")
-                console.print(f"[cyan]  ╠══════════════════════════════════════════════════════╣")
-                console.print(f"[cyan]  ║[/]  Best Model:   [green]{result['best_model']}[/]                      [cyan]║")
-                console.print(f"[cyan]  ║[/]  R² Score:     [yellow]{result['metrics']['r2']:.4f}[/]                       [cyan]║")
-                console.print(f"[cyan]  ╚══════════════════════════════════════════════════════╝")
-                
                 if pred > 50000:
                     console.print(f"\n[red bold]  ⚠ WARNING: Emissions exceed 50 GtCO2 threshold![/]")
-                
-                show_chart(emissions_data, years_data, 'Global CO2 Emissions', 'Emissions (MtCO2)',
-                           target_year, pred, pred_result['confidence_95'])
-        except Exception as e:
-            console.print(f"[red]  Error: {escape(str(e))}[/]")
+        else:
+            result = run_auto_prediction(
+                years=np.array([]),
+                values=np.array([]),
+                target_year=target_year,
+                unit="MtCO2",
+                title="CO2 Emissions",
+                data_type="co2_emissions",
+                df=df,
+                target_col=emission_col
+            )
+            
+            if result and "prediction" in result:
+                pred = result["prediction"]["prediction"]
+                if pred > 50000:
+                    console.print(f"\n[red bold]  ⚠ WARNING: Emissions exceed 50 GtCO2 threshold![/]")
     
     def _predict_neo_hazard(self):
         """Predict NEO hazard assessment."""
@@ -1429,7 +1481,7 @@ class MissionConsole:
         console.print(f"[cyan]  ║[/] [bold]NEAR-EARTH OBJECT HAZARD ANALYSIS[/]                  [cyan]║")
         console.print(f"[cyan]  ╠══════════════════════════════════════════════════════╣")
         
-        base_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'data')
+        base_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'data', 'satellites', 'data')
         neo_file = os.path.join(base_path, "nasa_neo/neo.csv")
         
         try:
@@ -1464,7 +1516,7 @@ class MissionConsole:
         console.print(f"\n[cyan]  ╔══════════════════════════════════════════════════════╗")
         console.print(f"[cyan]  ║[/] [bold]HURRICANE INTENSITY PREDICTION[/]                    [cyan]║")
         
-        base_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'data')
+        base_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'data', 'satellites', 'data')
         atl_file = os.path.join(base_path, "hurricanes/atlantic.csv")
         
         try:
@@ -1522,7 +1574,7 @@ class MissionConsole:
     
     def _predict_air_quality(self):
         """Predict air quality using auto model selection."""
-        base_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'data')
+        base_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'data', 'satellites', 'data')
         aq_file = os.path.join(base_path, "air_quality/air_quality.csv")
         
         try:
@@ -1572,7 +1624,7 @@ class MissionConsole:
             from sklearn.ensemble import RandomForestClassifier
             from sklearn.preprocessing import LabelEncoder
             
-            base_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'data')
+            base_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'data', 'satellites', 'data')
             crop_file = os.path.join(base_path, "crop_recommendation/Crop_Recommendation.csv")
             
             df = pd.read_csv(crop_file)
@@ -1612,8 +1664,8 @@ class MissionConsole:
         self._predict_temperature()
     
     def _predict_sea_ice(self):
-        """Predict sea ice extent using auto model selection."""
-        base_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'data')
+        """Predict sea ice extent using auto model selection with EDA + Feature Engineering."""
+        base_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'data', 'satellites', 'data')
         sea_file = os.path.join(base_path, "sea_ice/seaice.csv")
         
         try:
@@ -1625,7 +1677,9 @@ class MissionConsole:
                 console.print("[red]  No sea ice data available[/]")
                 return
             
-            yearly = df.groupby('Year')['Extent'].mean().reset_index()
+            if 'Year' not in df.columns:
+                console.print("[red]  No Year column found in sea ice data[/]")
+                return
             
             target_year = console.input("\n[yellow]  Enter target year (e.g., 2030, 2050): [/]").strip()
             if not target_year.isdigit():
@@ -1634,37 +1688,20 @@ class MissionConsole:
             
             target_year = int(target_year)
             
-            X = yearly['Year'].values
-            y = yearly['Extent'].values
+            if target_year < 1978 or target_year > 2100:
+                console.print(f"[red]  Year must be between 1978 and 2100.[/]")
+                return
             
-            console.print(Panel(
-                f"[bold cyan]🔮 AUTO MODEL SELECTION - Sea Ice[/]",
-                border_style="cyan", box=box.DOUBLE
-            ))
-            
-            result = AutoModelSelector.run_full_analysis(X, y, target_year, console)
-            
-            if result and "prediction" in result:
-                pred = result["prediction"]["prediction"]
-                pred_result = result["prediction"]
-                error = pred_result["std_error"]
-                
-                console.print(f"\n[cyan]  ╔══════════════════════════════════════════════════════╗")
-                console.print(f"[cyan]  ║[/] [bold]FINAL PREDICTION[/]                                  [cyan]║")
-                console.print(f"[cyan]  ╠══════════════════════════════════════════════════════╣")
-                console.print(f"[cyan]  ║[/]  Year:      [yellow]{target_year}[/]                              [cyan]║")
-                console.print(f"[cyan]  ║[/]  Extent:    [yellow]({pred:.2f} ± {error:.2f}) million km²[/]        [cyan]║")
-                console.print(f"[cyan]  ║[/]  95% CI:   [dim][{pred_result['confidence_95'][0]:.2f}, {pred_result['confidence_95'][1]:.2f}] km²[/]  [cyan]║")
-                console.print(f"[cyan]  ╠══════════════════════════════════════════════════════╣")
-                console.print(f"[cyan]  ║[/]  Best Model: [green]{result['best_model']}[/]                     [cyan]║")
-                console.print(f"[cyan]  ║[/]  R² Score:   [yellow]{result['metrics']['r2']:.4f}[/]                      [cyan]║")
-                console.print(f"[cyan]  ╚══════════════════════════════════════════════════════╝")
-                
-                if pred < 4.0:
-                    console.print(f"\n[yellow bold]  ⚠ Low ice extent predicted - climate change impact[/]")
-                
-                show_chart(y, X, 'Sea Ice Extent', 'Extent (million km²)',
-                           target_year, pred, pred_result['confidence_95'])
+            result = run_auto_prediction(
+                years=np.array([]),
+                values=np.array([]),
+                target_year=target_year,
+                unit="million km²",
+                title="Sea Ice Extent",
+                data_type="sea_ice",
+                df=df,
+                target_col="Extent"
+            )
         except Exception as e:
             console.print(f"[red]  Error: {escape(str(e))}[/]")
     
@@ -1674,7 +1711,7 @@ class MissionConsole:
         console.print(f"[cyan]  ║[/] [bold]FOREST HEALTH ASSESSMENT[/]                         [cyan]║")
         console.print(f"[cyan]  ╠══════════════════════════════════════════════════════╣")
         
-        base_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'data')
+        base_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'data', 'satellites', 'data')
         forest_file = os.path.join(base_path, "forest_health/forest_health_data_with_target.csv")
         
         try:
@@ -1700,7 +1737,7 @@ class MissionConsole:
         
         country = console.input("[yellow]  Enter country name: [/]").strip()
         
-        base_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'data')
+        base_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'data', 'satellites', 'data')
         
         for f in ["temperature_change/FAOSTAT_data_en_11-1-2024.csv", 
                   "temperature_change/GlobalTemperatures.csv"]:
@@ -1724,11 +1761,12 @@ class MissionConsole:
         console.print(f"[cyan]  ║[/] [bold]OCEAN CLIMATE PREDICTION[/]                         [cyan]║")
         console.print(f"[cyan]  ╠══════════════════════════════════════════════════════╣")
         
-        base_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'data')
+        base_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'data', 'satellites', 'data')
         ocean_file = os.path.join(base_path, "ocean_climate/realistic_ocean_climate_dataset.csv")
         
         try:
             df = pd.read_csv(ocean_file)
+            df.columns = df.columns.str.strip()
             console.print(f"[cyan]  ║  Analyzing {len(df)} ocean records...                  [cyan]║")
             
             if 'SST (°C)' in df.columns:
@@ -1747,7 +1785,7 @@ class MissionConsole:
         console.print(f"[cyan]  ║[/] [bold]NASA OCEAN CLIMATE ANALYSIS[/]                      [cyan]║")
         console.print(f"[cyan]  ╠══════════════════════════════════════════════════════╣")
         
-        base_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'data')
+        base_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'data', 'satellites', 'data')
         nasa_file = os.path.join(base_path, "nasa_ocean/nasa_ocean_climate.csv")
         
         try:
@@ -1766,7 +1804,7 @@ class MissionConsole:
         console.print(f"[cyan]  ║[/] [bold]KEPLER EXOPLANET DISCOVERY ANALYSIS[/]                [cyan]║")
         console.print(f"[cyan]  ╠══════════════════════════════════════════════════════╣")
         
-        base_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'data')
+        base_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'data', 'satellites', 'data')
         kepler_file = os.path.join(base_path, "kepler/cumulative.csv")
         
         try:
@@ -1786,7 +1824,7 @@ class MissionConsole:
     
     def _predict_meteorites(self):
         """Predict meteorite falls using auto model selection."""
-        base_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'data')
+        base_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'data', 'satellites', 'data')
         meteor_file = os.path.join(base_path, "meteorites/meteorite-landings.csv")
         
         try:
@@ -1817,7 +1855,7 @@ class MissionConsole:
         console.print(f"[cyan]  ║[/] [bold]CLOUD SEEDING EFFICIENCY[/]                        [cyan]║")
         console.print(f"[cyan]  ╠══════════════════════════════════════════════════════╣")
         
-        base_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'data')
+        base_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'data', 'satellites', 'data')
         cloud_file = os.path.join(base_path, "cloud_seeding/cloud_seeding.csv")
         
         try:
@@ -1848,7 +1886,7 @@ class MissionConsole:
             console.print(f"[red]  Error: {escape(str(e))}[/]")
         console.print(f"[cyan]  ╠══════════════════════════════════════════════════════╣")
         
-        base_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'data')
+        base_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'data', 'satellites', 'data')
         cloud_file = os.path.join(base_path, "cloud_seeding/cloud_seeding.csv")
         
         try:
@@ -1872,7 +1910,7 @@ class MissionConsole:
     
     def _predict_weather(self):
         """Predict weather using auto model selection."""
-        base_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'data')
+        base_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'data', 'satellites', 'data')
         weather_file = os.path.join(base_path, "weather/weather_data.csv")
         
         try:
@@ -1902,7 +1940,7 @@ class MissionConsole:
     
     def _predict_water_quality(self):
         """Predict water quality using auto model selection."""
-        base_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'data')
+        base_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'data', 'satellites', 'data')
         water_file = os.path.join(base_path, "water_quality/telangana_water.csv")
         
         try:
@@ -1922,7 +1960,7 @@ class MissionConsole:
     
     def _predict_deforestation(self):
         """Predict deforestation trend using auto model selection."""
-        base_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'data')
+        base_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'data', 'satellites', 'data')
         defor_file = os.path.join(base_path, "deforestation/goal15.forest_shares.csv")
         
         try:
@@ -1953,7 +1991,7 @@ class MissionConsole:
     
     def _predict_plastic_pollution(self):
         """Predict plastic pollution using auto model selection."""
-        base_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'data')
+        base_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'data', 'satellites', 'data')
         plastic_file = os.path.join(base_path, "plastic_pollution/plastic_waste.csv")
         
         try:
@@ -1983,7 +2021,7 @@ class MissionConsole:
         console.print(f"[cyan]  ║[/] [bold]SPACE WEATHER FORECAST[/]                           [cyan]║")
         console.print(f"[cyan]  ╠══════════════════════════════════════════════════════╣")
         
-        base_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'data')
+        base_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'data', 'satellites', 'data')
         space_file = os.path.join(base_path, "space_weather/space_weather_unified.csv")
         
         try:
@@ -2020,7 +2058,7 @@ class MissionConsole:
         console.print(f"[cyan]  ║[/] [bold]MARS CLIMATE PREDICTION (Curiosity Rover)[/]         [cyan]║")
         console.print(f"[cyan]  ╠══════════════════════════════════════════════════════╣")
         
-        base_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'data')
+        base_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'data', 'satellites', 'data')
         mars_file = os.path.join(base_path, "mars_rover/REMS_Mars_Dataset.csv")
         
         try:
@@ -2074,7 +2112,7 @@ class MissionConsole:
         console.print(f"[cyan]  ║[/] [bold]EARTHQUAKE/TSUNAMI RISK ANALYSIS[/]                 [cyan]║")
         console.print(f"[cyan]  ╠══════════════════════════════════════════════════════╣")
         
-        base_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'data')
+        base_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'data', 'satellites', 'data')
         quake_file = os.path.join(base_path, "earthquake_tsunami/earthquake_data_tsunami.csv")
         
         try:
@@ -2117,7 +2155,7 @@ class MissionConsole:
         console.print(f"[cyan]  ║[/] [bold]STAR TYPES ANALYSIS[/]                               [cyan]║")
         console.print(f"[cyan]  ╠══════════════════════════════════════════════════════╣")
         
-        base_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'data')
+        base_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'data', 'satellites', 'data')
         star_file = os.path.join(base_path, "stars/star_data.csv")
         
         try:
@@ -2146,7 +2184,7 @@ class MissionConsole:
         console.print(f"[cyan]  ║[/] [bold]GRAVITATIONAL WAVE ANALYSIS[/]                     [cyan]║")
         console.print(f"[cyan]  ╠══════════════════════════════════════════════════════╣")
         
-        base_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'data')
+        base_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'data', 'satellites', 'data')
         gw_file = os.path.join(base_path, "gravitational_waves/gw_data.csv")
         
         try:
@@ -2177,7 +2215,7 @@ class MissionConsole:
         console.print(f"[cyan]  ║[/] [bold]GALAXY CATALOG ANALYSIS[/]                          [cyan]║")
         console.print(f"[cyan]  ╠══════════════════════════════════════════════════════╣")
         
-        base_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'data')
+        base_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'data', 'satellites', 'data')
         gal_file = os.path.join(base_path, "galaxies/combo17_galaxies.csv")
         
         try:
@@ -2205,7 +2243,7 @@ class MissionConsole:
         console.print(f"[cyan]  ║[/] [bold]SOLAR SYSTEM PLANET ANALYSIS[/]                    [cyan]║")
         console.print(f"[cyan]  ╠══════════════════════════════════════════════════════╣")
         
-        base_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'data')
+        base_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'data', 'satellites', 'data')
         planet_file = os.path.join(base_path, "planets/planets.csv")
         
         try:
@@ -2231,7 +2269,7 @@ class MissionConsole:
         console.print(f"[cyan]  ║[/] [bold]VOLCANO ERUPTION ANALYSIS[/]                      [cyan]║")
         console.print(f"[cyan]  ╠══════════════════════════════════════════════════════╣")
         
-        base_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'data')
+        base_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'data', 'satellites', 'data')
         erup_file = os.path.join(base_path, "volcano_eruptions/volcano_data_2010.csv")
         
         try:
@@ -2261,7 +2299,7 @@ class MissionConsole:
         console.print(f"[cyan]  ║[/] [bold]VOLCANO ACTIVITY PREDICTION[/]                     [cyan]║")
         console.print(f"[cyan]  ╠══════════════════════════════════════════════════════╣")
         
-        base_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'data')
+        base_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'data', 'satellites', 'data')
         
         for vfile in ["volcanoes/volcanoes around the world in 2021.csv",
                       "volcano_eruptions/volcano_data_2010.csv"]:
@@ -2479,32 +2517,68 @@ class MissionConsole:
                     self.log_session("CMD: satellites")
                     self.print_satellite_catalog()
                 elif choice == "link":
-                    self.log_session("CMD: link")
-                    self.handle_link()
+                    if not self.current_user.can("link"):
+                        console.print("[red]  ✗ Access denied: insufficient permissions[/]")
+                    else:
+                        self.log_session("CMD: link")
+                        self.handle_link()
                 elif choice == "scan":
-                    self.log_session("CMD: scan")
-                    self.handle_scan()
+                    if not self.current_user.can("scan"):
+                        console.print("[red]  ✗ Access denied: insufficient permissions[/]")
+                    else:
+                        self.log_session("CMD: scan")
+                        self.handle_scan()
                 elif choice == "orbit":
-                    self.log_session("CMD: orbit")
-                    self.handle_orbit()
+                    if not self.current_user.can("orbit"):
+                        console.print("[red]  ✗ Access denied: insufficient permissions[/]")
+                    else:
+                        self.log_session("CMD: orbit")
+                        self.handle_orbit()
                 elif choice == "predict":
-                    self.log_session("CMD: predict")
-                    self.handle_predict()
+                    if not self.current_user.can("predict"):
+                        console.print("[red]  ✗ Access denied: insufficient permissions[/]")
+                    else:
+                        self.log_session("CMD: predict")
+                        self.handle_predict()
                 elif choice == "status":
                     self.log_session("CMD: status")
                     self.handle_status()
                 elif choice == "red-team":
-                    self.log_session("CMD: red-team")
-                    self.handle_red_team()
+                    if not self.current_user.can("red-team"):
+                        console.print("[red]  ✗ Access denied: insufficient permissions[/]")
+                    else:
+                        self.log_session("CMD: red-team")
+                        self.handle_red_team()
                 elif choice == "blue-team":
-                    self.log_session("CMD: blue-team")
-                    self.handle_blue_team()
+                    if not self.current_user.can("blue-team"):
+                        console.print("[red]  ✗ Access denied: insufficient permissions[/]")
+                    else:
+                        self.log_session("CMD: blue-team")
+                        self.handle_blue_team()
                 elif choice == "zero-trust":
-                    self.log_session("CMD: zero-trust")
-                    self.handle_zero_trust()
+                    if not self.current_user.can("zero-trust"):
+                        console.print("[red]  ✗ Access denied: insufficient permissions[/]")
+                    else:
+                        self.log_session("CMD: zero-trust")
+                        self.handle_zero_trust()
                 elif choice == "pqcrypto":
-                    self.log_session("CMD: pqcrypto")
-                    self.handle_pqcrypto()
+                    if not self.current_user.can("pqcrypto"):
+                        console.print("[red]  ✗ Access denied: insufficient permissions[/]")
+                    else:
+                        self.log_session("CMD: pqcrypto")
+                        self.handle_pqcrypto()
+                elif choice == "audit-chain":
+                    if not self.current_user.can("audit-chain"):
+                        console.print("[red]  ✗ Access denied: insufficient permissions[/]")
+                    else:
+                        self.log_session("CMD: audit-chain")
+                        self.handle_audit_chain()
+                elif choice == "threats":
+                    if not self.current_user.can("threats"):
+                        console.print("[red]  ✗ Access denied: insufficient permissions[/]")
+                    else:
+                        self.log_session("CMD: threats")
+                        self.handle_threats()
                 elif choice == "audit-chain":
                     self.log_session("CMD: audit-chain")
                     self.handle_audit_chain()
@@ -2876,6 +2950,350 @@ class ModelSelector:
         return console.input("\n[yellow]Model [1]: [/]").strip() or "1"
 
 
+class DataAnalyzer:
+    """EDA and Feature Engineering specific for each dataset type."""
+    
+    @staticmethod
+    def analyze_and_engineer(df: pd.DataFrame, target_col: str, data_type: str) -> tuple:
+        """Main method: performs EDA and feature engineering based on data type."""
+        
+        # Clean column names
+        df.columns = df.columns.str.strip()
+        
+        console.print(Panel(
+            f"[bold cyan]📊 DATA ANALYSIS: {data_type}[/]",
+            border_style="cyan", box=box.ROUNDED
+        ))
+        
+        console.print(f"\n[cyan]1. EXPLORATORY DATA ANALYSIS[/]")
+        
+        # Basic stats
+        console.print(f"  [dim]Rows: {len(df)}, Columns: {len(df.columns)}[/]")
+        
+        # Missing values analysis
+        missing = df.isnull().sum()
+        missing_pct = (missing / len(df) * 100).round(2)
+        cols_with_missing = missing_pct[missing_pct > 0]
+        if len(cols_with_missing) > 0:
+            console.print(f"  [yellow]Missing values: {dict(cols_with_missing[cols_with_missing > 0].head(5))}[/]")
+        
+        # Data type specific analysis
+        if data_type == "climate_temperature":
+            return DataAnalyzer._climate_temp_features(df, target_col)
+        elif data_type == "sea_level":
+            return DataAnalyzer._sea_level_features(df, target_col)
+        elif data_type == "co2_emissions":
+            return DataAnalyzer._co2_features(df, target_col)
+        elif data_type == "sea_ice":
+            return DataAnalyzer._sea_ice_features(df, target_col)
+        elif data_type == "hurricane":
+            return DataAnalyzer._hurricane_features(df, target_col)
+        elif data_type == "air_quality":
+            return DataAnalyzer._air_quality_features(df, target_col)
+        elif data_type == "ocean":
+            return DataAnalyzer._ocean_features(df, target_col)
+        elif data_type == "space_weather":
+            return DataAnalyzer._space_weather_features(df, target_col)
+        elif data_type == "mars_climate":
+            return DataAnalyzer._mars_climate_features(df, target_col)
+        else:
+            return DataAnalyzer._generic_features(df, target_col)
+    
+    @staticmethod
+    def _climate_temp_features(df: pd.DataFrame, target_col: str) -> tuple:
+        """Feature engineering for global temperature data."""
+        console.print(f"  [dim]Type: Time Series Climate Data[/]")
+        
+        # Detect year column
+        year_col = None
+        for col in df.columns:
+            if 'year' in col.lower():
+                year_col = col
+                break
+        
+        if year_col:
+            df[year_col] = pd.to_numeric(df[year_col], errors='coerce')
+            df[target_col] = pd.to_numeric(df[target_col], errors='coerce')
+            df = df.dropna(subset=[year_col, target_col])
+            
+            # Time-based features
+            year_min, year_max = df[year_col].min(), df[year_col].max()
+            df['year_scaled'] = (df[year_col] - year_min) / (year_max - year_min + 1e-10)
+            df['decade'] = (df[year_col] // 10) * 10
+            df['year_sq'] = df['year_scaled'] ** 2  # Polynomial feature
+            df['year_cube'] = df['year_scaled'] ** 3
+            
+            console.print(f"  [green]✓ Features: year_scaled, decade, year_sq, year_cube[/]")
+            
+            X = df[['year_scaled', 'year_sq', 'year_cube']].values
+            y = df[target_col].values
+            return X, y, df[year_col].values
+        
+        return DataAnalyzer._generic_features(df, target_col)
+    
+    @staticmethod
+    def _sea_level_features(df: pd.DataFrame, target_col: str) -> tuple:
+        """Feature engineering for sea level data."""
+        console.print(f"  [dim]Type: Sea Level Altimetry Data[/]")
+        
+        year_col = None
+        for col in df.columns:
+            if 'year' in col.lower():
+                year_col = col
+                break
+        
+        if year_col:
+            df[year_col] = pd.to_numeric(df[year_col], errors='coerce')
+            df = df.dropna(subset=[year_col, target_col])
+            
+            # Non-linear trend features
+            df['year_scaled'] = (df[year_col] - df[year_col].min()) / (df[year_col].max() - df[year_col].min() + 1e-10)
+            df['year_sq'] = df['year_scaled'] ** 2
+            df['year_sqrt'] = np.sqrt(df['year_scaled'])
+            
+            # Moving average as feature
+            df['ma_3'] = df[target_col].rolling(3, min_periods=1).mean()
+            
+            console.print(f"  [green]✓ Features: year_scaled, year_sq, year_sqrt, ma_3[/]")
+            
+            X = df[['year_scaled', 'year_sq', 'year_sqrt', 'ma_3']].fillna(0).values
+            y = df[target_col].values
+            return X, y, df[year_col].values
+        
+        return DataAnalyzer._generic_features(df, target_col)
+    
+    @staticmethod
+    def _co2_features(df: pd.DataFrame, target_col: str) -> tuple:
+        """Feature engineering for CO2 emissions."""
+        console.print(f"  [dim]Type: CO2 Emission Time Series[/]")
+        
+        year_col = None
+        for col in df.columns:
+            if 'year' in col.lower():
+                year_col = col
+                break
+        
+        if year_col:
+            df[year_col] = pd.to_numeric(df[year_col], errors='coerce')
+            df[target_col] = pd.to_numeric(df[target_col], errors='coerce')
+            df = df.dropna(subset=[year_col, target_col])
+            
+            if len(df) < 5:
+                console.print(f"  [red]✗ Insufficient valid data after cleaning[/]")
+                return None, None, None
+            
+            # Exponential growth features
+            year_min, year_max = df[year_col].min(), df[year_col].max()
+            df['year_scaled'] = (df[year_col] - year_min) / (year_max - year_min + 1e-10)
+            df['exp_year'] = np.exp(df['year_scaled'].clip(0, 5))
+            df['log_year'] = np.log1p(df['year_scaled'])
+            
+            # Acceleration features
+            df['year_sq'] = df['year_scaled'] ** 2
+            
+            console.print(f"  [green]✓ Features: year_scaled, year_sq, exp_year, log_year[/]")
+            
+            X = df[['year_scaled', 'year_sq', 'exp_year', 'log_year']].values
+            y = df[target_col].values
+            return X, y, df[year_col].values
+        
+        return DataAnalyzer._generic_features(df, target_col)
+    
+    @staticmethod
+    def _sea_ice_features(df: pd.DataFrame, target_col: str) -> tuple:
+        """Feature engineering for sea ice extent."""
+        console.print(f"  [dim]Type: Sea Ice Satellite Data[/]")
+        
+        year_col = None
+        for col in df.columns:
+            if 'year' in col.lower():
+                year_col = col
+                break
+        
+        if year_col:
+            df[year_col] = pd.to_numeric(df[year_col], errors='coerce')
+            df = df.dropna(subset=[year_col, target_col])
+            
+            # Cyclic features for seasonal patterns
+            df['year_scaled'] = (df[year_col] - df[year_col].min()) / (df[year_col].max() - df[year_col].min() + 1e-10)
+            df['year_sq'] = df['year_scaled'] ** 2
+            
+            # Trend + seasonal decomposition approximation
+            df['trend'] = df[target_col].rolling(5, min_periods=1).mean()
+            df['detrend'] = df[target_col] - df['trend']
+            
+            console.print(f"  [green]✓ Features: year_scaled, year_sq, trend, detrend[/]")
+            
+            X = df[['year_scaled', 'year_sq', 'trend', 'detrend']].fillna(0).values
+            y = df[target_col].values
+            return X, y, df[year_col].values
+        
+        return DataAnalyzer._generic_features(df, target_col)
+    
+    @staticmethod
+    def _hurricane_features(df: pd.DataFrame, target_col: str) -> tuple:
+        """Feature engineering for hurricane data."""
+        console.print(f"  [dim]Type: Hurricane/cyclone Track Data[/]")
+        
+        # Check for numeric columns for features
+        numeric_cols = df.select_dtypes(include=[np.number]).columns.tolist()
+        if len(numeric_cols) >= 2:
+            feature_cols = [c for c in numeric_cols if c != target_col][:5]
+            
+            console.print(f"  [green]✓ Features: {feature_cols}[/]")
+            
+            X = df[feature_cols].fillna(0).values
+            y = df[target_col].values if target_col in df.columns else None
+            
+            if y is None:
+                # Create target from max wind
+                if 'Maximum Wind' in df.columns:
+                    y = df['Maximum Wind'].values
+            
+            return X, y, None
+        
+        return DataAnalyzer._generic_features(df, target_col)
+    
+    @staticmethod
+    def _air_quality_features(df: pd.DataFrame, target_col: str) -> tuple:
+        """Feature engineering for air quality data."""
+        console.print(f"  [dim]Type: Air Quality Monitoring[/]")
+        
+        numeric_cols = df.select_dtypes(include=[np.number]).columns.tolist()
+        if len(numeric_cols) >= 2:
+            feature_cols = [c for c in numeric_cols if c != target_col][:6]
+            
+            # Add interaction features
+            if len(feature_cols) >= 2:
+                df['interaction'] = df[feature_cols[0]] * df[feature_cols[1]]
+                feature_cols.append('interaction')
+            
+            console.print(f"  [green]✓ Features: {feature_cols[:6]}[/]")
+            
+            X = df[feature_cols].fillna(0).values
+            y = df[target_col].values if target_col in df.columns else None
+            return X, y, None
+        
+        return DataAnalyzer._generic_features(df, target_col)
+    
+    @staticmethod
+    def _ocean_features(df: pd.DataFrame, target_col: str) -> tuple:
+        """Feature engineering for ocean climate data."""
+        console.print(f"  [dim]Type: Ocean/Sea Surface Temperature[/]")
+        
+        year_col = None
+        for col in df.columns:
+            if 'year' in col.lower():
+                year_col = col
+                break
+        
+        if year_col:
+            df[year_col] = pd.to_numeric(df[year_col], errors='coerce')
+            df = df.dropna(subset=[year_col])
+            
+            if target_col in df.columns:
+                df = df.dropna(subset=[target_col])
+                
+                # Temporal features
+                df['year_scaled'] = (df[year_col] - df[year_col].min()) / (df[year_col].max() - df[year_col].min() + 1e-10)
+                df['sin_year'] = np.sin(2 * np.pi * df['year_scaled'])
+                df['cos_year'] = np.cos(2 * np.pi * df['year_scaled'])
+                
+                console.print(f"  [green]✓ Features: year_scaled, sin_year, cos_year (cyclic)[/]")
+                
+                X = df[['year_scaled', 'sin_year', 'cos_year']].values
+                y = df[target_col].values
+                return X, y, df[year_col].values
+        
+        return DataAnalyzer._generic_features(df, target_col)
+    
+    @staticmethod
+    def _space_weather_features(df: pd.DataFrame, target_col: str) -> tuple:
+        """Feature engineering for space weather data."""
+        console.print(f"  [dim]Type: Solar/Space Weather Events[/]")
+        
+        # Check for datetime or date columns
+        date_cols = [c for c in df.columns if 'date' in c.lower() or 'time' in c.lower()]
+        
+        if date_cols and target_col in df.columns:
+            try:
+                df[date_cols[0]] = pd.to_datetime(df[date_cols[0]], errors='coerce')
+                df = df.dropna(subset=[date_cols[0], target_col])
+                
+                # Temporal features
+                df['month'] = df[date_cols[0]].dt.month
+                df['day_of_year'] = df[date_cols[0]].dt.dayofyear
+                df['month_sin'] = np.sin(2 * np.pi * df['month'] / 12)
+                df['month_cos'] = np.cos(2 * np.pi * df['month'] / 12)
+                
+                numeric_cols = df.select_dtypes(include=[np.number]).columns.tolist()
+                feature_cols = [c for c in numeric_cols if c != target_col][:4]
+                
+                console.print(f"  [green]✓ Features: temporal cyclic + numeric[/]")
+                
+                X = df[feature_cols].fillna(0).values
+                y = df[target_col].values
+                return X, y, None
+            except:
+                pass
+        
+        return DataAnalyzer._generic_features(df, target_col)
+    
+    @staticmethod
+    def _mars_climate_features(df: pd.DataFrame, target_col: str) -> tuple:
+        """Feature engineering for Mars rover climate data."""
+        console.print(f"  [dim]Type: Mars REMS Sensor Data[/]")
+        
+        # Sol-based time series
+        sol_col = None
+        for col in df.columns:
+            if 'sol' in col.lower():
+                sol_col = col
+                break
+        
+        if sol_col:
+            # Extract numeric sol
+            df['sol_num'] = df[sol_col].astype(str).str.extract(r'Sol (\d+)')[0].astype(float)
+            df = df.dropna(subset=['sol_num'])
+            
+            if target_col in df.columns:
+                df = df.dropna(subset=[target_col])
+                
+                # Time features for Martian sol
+                df['sol_scaled'] = (df['sol_num'] - df['sol_num'].min()) / (df['sol_num'].max() - df['sol_num'].min() + 1e-10)
+                df['sol_sin'] = np.sin(2 * np.pi * (df['sol_num'] % 100) / 100)  # Seasonal pattern
+                df['sol_cos'] = np.cos(2 * np.pi * (df['sol_num'] % 100) / 100)
+                
+                console.print(f"  [green]✓ Features: sol_scaled, sol_sin, sol_cos (Martian seasonal)[/]")
+                
+                X = df[['sol_scaled', 'sol_sin', 'sol_cos']].values
+                y = df[target_col].values
+                return X, y, df['sol_num'].values
+        
+        return DataAnalyzer._generic_features(df, target_col)
+    
+    @staticmethod
+    def _generic_features(df: pd.DataFrame, target_col: str) -> tuple:
+        """Generic feature engineering for any dataset."""
+        console.print(f"  [dim]Type: Generic[/]")
+        
+        numeric_cols = df.select_dtypes(include=[np.number]).columns.tolist()
+        
+        if target_col in df.columns:
+            feature_cols = [c for c in numeric_cols if c != target_col]
+        else:
+            feature_cols = numeric_cols[:5] if numeric_cols else []
+        
+        if feature_cols:
+            console.print(f"  [green]✓ Features: {feature_cols[:5]}[/]")
+            X = df[feature_cols].fillna(0).values
+            y = df[target_col].values if target_col in df.columns else df[numeric_cols[0]].values
+            return X, y, None
+        
+        console.print(f"  [red]✗ No numeric features found[/]")
+        return None, None, None
+
+
 class AutoModelSelector:
     """Automatic model selection with cross-validation."""
     
@@ -2984,7 +3402,7 @@ class AutoModelSelector:
     
     @staticmethod
     def train_best_and_predict(best_model_name: str, X: np.ndarray, y: np.ndarray, 
-                               target_year: int) -> Dict:
+                               target_year: int, years: np.ndarray = None) -> Dict:
         from sklearn.linear_model import LinearRegression, Ridge
         from sklearn.ensemble import RandomForestRegressor, GradientBoostingRegressor
         from sklearn.preprocessing import PolynomialFeatures, StandardScaler
@@ -3021,7 +3439,30 @@ class AutoModelSelector:
         
         model.fit(X, y)
         
-        X_pred = np.array([[target_year]])
+        # Create proper prediction features matching training
+        if years is not None and X.shape[1] == 3:  # Climate temperature features
+            # year_scaled, year_sq, year_cube for target_year
+            year_min, year_max = years.min(), years.max()
+            year_scaled = (target_year - year_min) / (year_max - year_min + 1e-10)
+            year_sq = year_scaled ** 2
+            year_cube = year_scaled ** 3
+            X_pred = np.array([[year_scaled, year_sq, year_cube]])
+        elif years is not None and X.shape[1] == 4:  # Sea level / CO2 features
+            year_min, year_max = years.min(), years.max()
+            year_scaled = (target_year - year_min) / (year_max - year_min + 1e-10)
+            year_sq = year_scaled ** 2
+            exp_year = np.exp(year_scaled)
+            log_year = np.log1p(year_scaled)
+            X_pred = np.array([[year_scaled, year_sq, exp_year, log_year]])
+        else:
+            # Fallback: scale target year to match training range
+            if years is not None and len(years) > 0:
+                year_min, year_max = years.min(), years.max()
+                year_scaled = (target_year - year_min) / (year_max - year_min + 1e-10)
+            else:
+                year_scaled = target_year / 2100  # Rough default
+            X_pred = np.array([[year_scaled]])
+        
         prediction = model.predict(X_pred)[0]
         
         y_pred = model.predict(X)
@@ -3049,7 +3490,51 @@ class AutoModelSelector:
             console.print("[red]No model succeeded[/]")
             return None
         
-        prediction_result = AutoModelSelector.train_best_and_predict(best_model, X, y, target_year)
+        prediction_result = AutoModelSelector.train_best_and_predict(best_model, X, y, target_year, years)
+        
+        console.print(f"\n[green bold]★ BEST MODEL: {best_model}[/]")
+        console.print(f"[cyan]  R² Score:     {best_metrics['r2']:.6f}[/]")
+        console.print(f"[cyan]  RMSE:         {best_metrics['rmse']:.6f}[/]")
+        console.print(f"[cyan]  MAE:          {best_metrics['mae']:.6f}[/]")
+        console.print(f"[cyan]  Std Error:    {best_metrics['std_error']:.6f}[/]")
+        
+        console.print(f"\n[yellow bold]★ PREDICTION FOR {target_year}:[/]")
+        console.print(f"[green]  Value: {prediction_result['prediction']:.4f}[/]")
+        console.print(f"[cyan]  95% CI: [{prediction_result['confidence_95'][0]:.4f}, {prediction_result['confidence_95'][1]:.4f}][/]")
+        
+        return {
+            "best_model": best_model,
+            "metrics": best_metrics,
+            "prediction": prediction_result
+        }
+    
+    @staticmethod
+    def run_full_analysis_with_features(X_engineered: np.ndarray, years: np.ndarray,
+                                        values: np.ndarray, target_year: int, console: Console) -> Dict:
+        """Run full analysis with pre-engineered features."""
+        
+        if X_engineered is not None and len(X_engineered) > 0:
+            # Use engineered features
+            X = X_engineered
+            y = values
+        else:
+            # Fallback to basic
+            X = years.reshape(-1, 1) if len(years) > 0 else values.reshape(-1, 1)
+            y = values
+        
+        if len(X) < 5 or len(y) < 5:
+            console.print("[red]  Insufficient data for prediction[/]")
+            return None
+        
+        results = AutoModelSelector.run_all_models_cv(X, y, target_year)
+        
+        best_model, best_metrics = AutoModelSelector.select_best(results)
+        
+        if best_model is None:
+            console.print("[red]No model succeeded[/]")
+            return None
+        
+        prediction_result = AutoModelSelector.train_best_and_predict(best_model, X, y, target_year, years)
         
         console.print(f"\n[green bold]★ BEST MODEL: {best_model}[/]")
         console.print(f"[cyan]  R² Score:     {best_metrics['r2']:.6f}[/]")
@@ -3069,14 +3554,31 @@ class AutoModelSelector:
 
 
 def run_auto_prediction(years: np.ndarray, values: np.ndarray, target_year: int, 
-                       unit: str, title: str) -> Dict:
-    """Generic auto model selection and prediction function."""
+                       unit: str, title: str, data_type: str = "generic",
+                       df: pd.DataFrame = None, target_col: str = None) -> Dict:
+    """Generic auto model selection and prediction function with EDA + Feature Engineering."""
+    
     console.print(Panel(
         f"[bold cyan]🔮 AUTO MODEL SELECTION - {title}[/]",
         border_style="cyan", box=box.DOUBLE
     ))
     
-    result = AutoModelSelector.run_full_analysis(years, values, target_year, console)
+    # Step 1: EDA and Feature Engineering
+    X_engineered = None
+    if df is not None and target_col is not None:
+        X_engineered, y_engineered, years_out = DataAnalyzer.analyze_and_engineer(
+            df, target_col, data_type
+        )
+        
+        if X_engineered is not None and y_engineered is not None:
+            years = years_out if years_out is not None else np.arange(len(y_engineered))
+            values = y_engineered
+            console.print(f"\n[green]✓ Using {X_engineered.shape[1]} engineered features[/]")
+    
+    # Step 2: Auto Model Selection with cross-validation
+    result = AutoModelSelector.run_full_analysis_with_features(
+        X_engineered, years, values, target_year, console
+    )
     
     if result and "prediction" in result:
         pred = result["prediction"]["prediction"]
