@@ -1,2 +1,0 @@
-# Pin the Textual TUI framework used by Mission Control (sentry_console.py).
-textual>=0.47.0
