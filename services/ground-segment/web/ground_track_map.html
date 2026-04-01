@@ -1,0 +1,864 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SentryGround-Zero | Ground Track Viewer</title>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Courier New', monospace;
+            background: #0A0E17;
+            color: #F9FAFB;
+        }
+        
+        .header {
+            background: linear-gradient(90deg, #0A0E17 0%, #111827 50%, #0A0E17 100%);
+            padding: 1rem 2rem;
+            border-bottom: 2px solid #00D4FF;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        
+        .logo {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+        }
+        
+        .logo h1 {
+            color: #00D4FF;
+            font-size: 1.3rem;
+            letter-spacing: 2px;
+        }
+        
+        .controls {
+            display: flex;
+            gap: 1rem;
+            align-items: center;
+        }
+        
+        .control-group {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+        
+        .control-label {
+            color: #9CA3AF;
+            font-size: 0.75rem;
+        }
+        
+        select, input {
+            background: #1F2937;
+            border: 1px solid #374151;
+            border-radius: 4px;
+            color: #F9FAFB;
+            padding: 0.4rem 0.6rem;
+            font-family: inherit;
+            font-size: 0.8rem;
+        }
+        
+        .btn {
+            background: #1F2937;
+            border: 1px solid #00D4FF;
+            border-radius: 4px;
+            color: #00D4FF;
+            padding: 0.4rem 1rem;
+            font-family: inherit;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        
+        .btn:hover {
+            background: #00D4FF;
+            color: #0A0E17;
+        }
+        
+        .main-container {
+            display: flex;
+            height: calc(100vh - 60px);
+        }
+        
+        .sidebar {
+            width: 320px;
+            background: #111827;
+            border-right: 1px solid #374151;
+            overflow-y: auto;
+            padding: 1rem;
+        }
+        
+        .sidebar-title {
+            color: #00D4FF;
+            font-size: 0.9rem;
+            margin-bottom: 1rem;
+            padding-bottom: 0.5rem;
+            border-bottom: 1px solid #374151;
+        }
+        
+        .satellite-card {
+            background: #1F2937;
+            border-radius: 8px;
+            padding: 1rem;
+            margin-bottom: 0.75rem;
+            cursor: pointer;
+            transition: all 0.2s;
+            border: 1px solid transparent;
+        }
+        
+        .satellite-card:hover {
+            background: #374151;
+        }
+        
+        .satellite-card.selected {
+            border-color: #00D4FF;
+        }
+        
+        .sat-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 0.5rem;
+        }
+        
+        .sat-name {
+            font-weight: bold;
+            color: #F9FAFB;
+        }
+        
+        .sat-status {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+        }
+        
+        .sat-status.nominal { background: #10B981; }
+        .sat-status.warning { background: #F59E0B; }
+        .sat-status.critical { background: #EF4444; }
+        
+        .sat-info {
+            font-size: 0.75rem;
+            color: #9CA3AF;
+        }
+        
+        .sat-info div {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 0.25rem;
+        }
+        
+        .sat-info span:last-child {
+            color: #F9FAFB;
+        }
+        
+        .map-container {
+            flex: 1;
+            position: relative;
+        }
+        
+        #map {
+            width: 100%;
+            height: 100%;
+            background: #0A0E17;
+        }
+        
+        .info-overlay {
+            position: absolute;
+            top: 1rem;
+            right: 1rem;
+            background: rgba(17, 24, 39, 0.95);
+            border: 1px solid #374151;
+            border-radius: 8px;
+            padding: 1rem;
+            z-index: 1000;
+            min-width: 250px;
+        }
+        
+        .info-title {
+            color: #00D4FF;
+            font-size: 0.9rem;
+            margin-bottom: 0.75rem;
+        }
+        
+        .info-row {
+            display: flex;
+            justify-content: space-between;
+            font-size: 0.8rem;
+            margin-bottom: 0.5rem;
+        }
+        
+        .info-label {
+            color: #9CA3AF;
+        }
+        
+        .info-value {
+            color: #F9FAFB;
+        }
+        
+        .legend {
+            position: absolute;
+            bottom: 2rem;
+            left: 1rem;
+            background: rgba(17, 24, 39, 0.95);
+            border: 1px solid #374151;
+            border-radius: 8px;
+            padding: 1rem;
+            z-index: 1000;
+        }
+        
+        .legend-title {
+            color: #00D4FF;
+            font-size: 0.8rem;
+            margin-bottom: 0.5rem;
+        }
+        
+        .legend-item {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            font-size: 0.75rem;
+            margin-bottom: 0.25rem;
+        }
+        
+        .legend-marker {
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+        }
+        
+        .ground-station {
+            width: 16px;
+            height: 16px;
+            background: #3B82F6;
+            border: 2px solid #fff;
+            border-radius: 50%;
+        }
+        
+        .time-controls {
+            position: absolute;
+            bottom: 2rem;
+            right: 1rem;
+            background: rgba(17, 24, 39, 0.95);
+            border: 1px solid #374151;
+            border-radius: 8px;
+            padding: 1rem;
+            z-index: 1000;
+            display: flex;
+            gap: 0.5rem;
+            align-items: center;
+        }
+        
+        .time-display {
+            font-size: 0.9rem;
+            color: #00D4FF;
+            min-width: 180px;
+            text-align: center;
+        }
+        
+        .playback-controls {
+            display: flex;
+            gap: 0.25rem;
+        }
+        
+        .playback-btn {
+            width: 32px;
+            height: 32px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: #1F2937;
+            border: 1px solid #374151;
+            border-radius: 4px;
+            color: #F9FAFB;
+            cursor: pointer;
+        }
+        
+        .playback-btn:hover {
+            background: #374151;
+        }
+        
+        .playback-btn.active {
+            background: #00D4FF;
+            color: #0A0E17;
+        }
+        
+        /* Custom map styles */
+        .leaflet-container {
+            background: #0A0E17;
+        }
+        
+        .satellite-marker {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        
+        .marker-icon {
+            width: 20px;
+            height: 20px;
+            border-radius: 50%;
+            border: 2px solid rgba(255,255,255,0.8);
+            box-shadow: 0 0 10px rgba(0,0,0,0.5);
+        }
+        
+        .marker-trail {
+            stroke: true;
+            weight: 2;
+            opacity: 0.7;
+            lineCap: round;
+        }
+        
+        .popup-content {
+            font-family: 'Courier New', monospace;
+            color: #F9FAFB;
+        }
+        
+        .popup-content h4 {
+            color: #00D4FF;
+            margin-bottom: 0.5rem;
+        }
+        
+        .popup-row {
+            display: flex;
+            justify-content: space-between;
+            font-size: 0.8rem;
+            margin-bottom: 0.25rem;
+        }
+        
+        .popup-label {
+            color: #9CA3AF;
+        }
+        
+        .satellite-pass {
+            stroke: true;
+            weight: 3;
+            opacity: 0.8;
+            lineCap: round;
+            lineJoin: round;
+        }
+        
+        .pass-prediction {
+            background: #1F2937;
+            border-radius: 4px;
+            padding: 0.5rem;
+            margin-top: 0.5rem;
+        }
+        
+        .pass-title {
+            color: #00D4FF;
+            font-size: 0.8rem;
+            margin-bottom: 0.25rem;
+        }
+        
+        .pass-time {
+            font-size: 0.75rem;
+        }
+        
+        /* Real-time indicator */
+        .realtime-badge {
+            background: #10B981;
+            color: #fff;
+            padding: 0.2rem 0.5rem;
+            border-radius: 4px;
+            font-size: 0.7rem;
+            display: flex;
+            align-items: center;
+            gap: 0.3rem;
+        }
+        
+        .realtime-badge::before {
+            content: '';
+            width: 6px;
+            height: 6px;
+            background: #fff;
+            border-radius: 50%;
+            animation: pulse 1s infinite;
+        }
+        
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.3; }
+        }
+        
+        /* Scanline effect */
+        .scanline {
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 2px;
+            background: rgba(0, 212, 255, 0.1);
+            animation: scan 3s linear infinite;
+            pointer-events: none;
+            z-index: 999;
+        }
+        
+        @keyframes scan {
+            0% { top: 0; }
+            100% { top: 100%; }
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <div class="logo">
+            <h1>🌍 SENTRYGROUND-ZERO</h1>
+            <span style="color: #9CA3AF; font-size: 0.85rem;">GROUND TRACK MONITOR</span>
+        </div>
+        <div class="controls">
+            <div class="control-group">
+                <span class="control-label">SATELLITE:</span>
+                <select id="satellite-select">
+                    <option value="all">All Satellites</option>
+                </select>
+            </div>
+            <div class="control-group">
+                <span class="control-label">REGIME:</span>
+                <select id="regime-select">
+                    <option value="all">All</option>
+                    <option value="LEO">LEO</option>
+                    <option value="MEO">MEO</option>
+                    <option value="GEO">GEO</option>
+                </select>
+            </div>
+            <div class="control-group">
+                <span class="control-label">LAYER:</span>
+                <select id="layer-select">
+                    <option value="tracks">Ground Tracks</option>
+                    <option value="coverage">Coverage</option>
+                    <option value="passes">Pass Predictions</option>
+                </select>
+            </div>
+            <button class="btn" id="btn-fullscreen">FULLSCREEN</button>
+            <button class="btn" id="btn-export">EXPORT</button>
+            <span class="realtime-badge">LIVE</span>
+        </div>
+    </div>
+    
+    <div class="main-container">
+        <div class="sidebar">
+            <div class="sidebar-title">⬡ SATELLITE CONSTELLATION</div>
+            <div id="satellite-list"></div>
+        </div>
+        
+        <div class="map-container">
+            <div class="scanline"></div>
+            <div id="map"></div>
+            
+            <div class="info-overlay" id="info-overlay" style="display: none;">
+                <div class="info-title">SATELLITE TELEMETRY</div>
+                <div id="sat-info-content"></div>
+            </div>
+            
+            <div class="legend">
+                <div class="legend-title">ORBITAL REGIMES</div>
+                <div class="legend-item">
+                    <div class="legend-marker" style="background: #10B981;"></div>
+                    <span>LEO (200-2000 km)</span>
+                </div>
+                <div class="legend-item">
+                    <div class="legend-marker" style="background: #F59E0B;"></div>
+                    <span>MEO (2000-35000 km)</span>
+                </div>
+                <div class="legend-item">
+                    <div class="legend-marker" style="background: #EF4444;"></div>
+                    <span>GEO (35786 km)</span>
+                </div>
+                <div class="legend-item">
+                    <div class="legend-marker" style="background: #8B5CF6;"></div>
+                    <span>HEO (Highly Elliptical)</span>
+                </div>
+                <div style="margin-top: 0.5rem; padding-top: 0.5rem; border-top: 1px solid #374151;">
+                    <div class="legend-item">
+                        <div class="ground-station"></div>
+                        <span>Ground Station</span>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="time-controls">
+                <div class="playback-controls">
+                    <button class="playback-btn" id="btn-slower">⏪</button>
+                    <button class="playback-btn" id="btn-play">▶</button>
+                    <button class="playback-btn" id="btn-pause">⏸</button>
+                    <button class="playback-btn" id="btn-faster">⏩</button>
+                </div>
+                <div class="time-display" id="time-display">2024-01-01 00:00:00 UTC</div>
+            </div>
+        </div>
+    </div>
+    
+    <script>
+        // Satellite data
+        const satellites = [
+            { id: 'SENTRY-01', name: 'SENTRY-01 (EO)', regime: 'LEO', altitude: 550, inc: 97.4, period: 95.5, color: '#10B981' },
+            { id: 'SENTRY-02', name: 'SENTRY-02 (SAR)', regime: 'LEO', altitude: 540, inc: 53.0, period: 95.2, color: '#10B981' },
+            { id: 'SENTRY-03', name: 'SENTRY-03 (GPS)', regime: 'MEO', altitude: 20180, inc: 63.4, period: 718, color: '#F59E0B' },
+            { id: 'SENTRY-04', name: 'SENTRY-04 (COM)', regime: 'GEO', altitude: 35786, inc: 0.0, period: 1436, color: '#EF4444' },
+            { id: 'SENTRY-05', name: 'SENTRY-05 (TDRS)', regime: 'HEO', altitude: 12000, inc: 63.4, period: 480, color: '#8B5CF6' },
+            { id: 'SENTRY-06', name: 'SENTRY-06 (EO)', regime: 'LEO', altitude: 560, inc: 97.8, period: 96.0, color: '#10B981' },
+            { id: 'SENTRY-07', name: 'SENTRY-07 (Climate)', regime: 'LEO', altitude: 705, inc: 98.2, period: 98.8, color: '#10B981' },
+            { id: 'SENTRY-08', name: 'SENTRY-08 (Weather)', regime: 'GEO', altitude: 35786, inc: 0.1, period: 1436, color: '#EF4444' },
+        ];
+        
+        // Ground stations
+        const groundStations = [
+            { name: 'Kiruna', lat: 67.86, lon: 20.41 },
+            { name: 'Svalbard', lat: 78.23, lon: 15.64 },
+            { name: 'McMurdo', lat: -77.85, lon: 166.67 },
+            { name: 'Troll', lat: -72.01, lon: 2.53 },
+            { name: 'Maspalomas', lat: 27.76, lon: -15.63 },
+            { name: 'Redu', lat: 50.00, lon: 5.14 },
+            { name: 'Sathyamangalam', lat: 11.44, lon: 77.58 },
+            { name: 'Beijing', lat: 40.46, lon: 116.28 },
+            { name: 'Kiruna', lat: 67.86, lon: 20.41 },
+        ];
+        
+        // State
+        let map;
+        let satelliteMarkers = {};
+        let trailLines = {};
+        let groundStationMarkers = {};
+        let currentTime = new Date();
+        let isPlaying = false;
+        let playbackSpeed = 1;
+        let animationInterval;
+        let selectedSatellite = null;
+        
+        // Initialize map
+        function initMap() {
+            map = L.map('map', {
+                center: [20, 0],
+                zoom: 2,
+                minZoom: 2,
+                maxZoom: 10,
+                worldCopyJump: true,
+                timeDimension: true,
+                timeDimensionOptions: {
+                    timeInterval: 1000,
+                    period: 'PT1S'
+                },
+            });
+            
+            // Dark map tiles
+            L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
+                attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OSM</a> &copy; <a href="https://carto.com/">CARTO</a>',
+                subdomains: 'abcd',
+                maxZoom: 19
+            }).addTo(map);
+            
+            // Add ground stations
+            addGroundStations();
+            
+            // Add satellites
+            addSatellites();
+            
+            // Update positions
+            updatePositions();
+        }
+        
+        function addGroundStations() {
+            groundStations.forEach(station => {
+                const icon = L.divIcon({
+                    className: 'ground-station-marker',
+                    html: '<div class="ground-station" title="' + station.name + '"></div>',
+                    iconSize: [16, 16],
+                    iconAnchor: [8, 8]
+                });
+                
+                const marker = L.marker([station.lat, station.lon], { icon })
+                    .addTo(map)
+                    .bindPopup(`
+                        <div class="popup-content">
+                            <h4>${station.name}</h4>
+                            <div class="popup-row">
+                                <span class="popup-label">Latitude:</span>
+                                <span>${station.lat.toFixed(2)}°</span>
+                            </div>
+                            <div class="popup-row">
+                                <span class="popup-label">Longitude:</span>
+                                <span>${station.lon.toFixed(2)}°</span>
+                            </div>
+                        </div>
+                    `);
+                
+                groundStationMarkers[station.name] = marker;
+            });
+        }
+        
+        function addSatellites() {
+            satellites.forEach(sat => {
+                // Marker icon
+                const icon = L.divIcon({
+                    className: 'satellite-marker',
+                    html: `<div class="marker-icon" style="background: ${sat.color}; box-shadow: 0 0 15px ${sat.color};"></div>`,
+                    iconSize: [20, 20],
+                    iconAnchor: [10, 10]
+                });
+                
+                // Add marker
+                const marker = L.marker([0, 0], { icon })
+                    .addTo(map)
+                    .bindPopup(createSatellitePopup(sat));
+                
+                satelliteMarkers[sat.id] = marker;
+                
+                // Create trail line
+                const trailLine = L.polyline([], {
+                    color: sat.color,
+                    weight: 2,
+                    opacity: 0.7,
+                    smoothFactor: 1
+                }).addTo(map);
+                
+                trailLines[sat.id] = {
+                    line: trailLine,
+                    points: []
+                };
+            });
+            
+            // Populate sidebar
+            populateSidebar();
+            
+            // Populate select
+            populateSelect();
+        }
+        
+        function createSatellitePopup(sat) {
+            const pos = calculatePosition(sat, currentTime);
+            return `
+                <div class="popup-content">
+                    <h4>${sat.name}</h4>
+                    <div class="popup-row">
+                        <span class="popup-label">Regime:</span>
+                        <span>${sat.regime}</span>
+                    </div>
+                    <div class="popup-row">
+                        <span class="popup-label">Altitude:</span>
+                        <span>${sat.altitude.toLocaleString()} km</span>
+                    </div>
+                    <div class="popup-row">
+                        <span class="popup-label">Inclination:</span>
+                        <span>${sat.inc}°</span>
+                    </div>
+                    <div class="popup-row">
+                        <span class="popup-label">Period:</span>
+                        <span>${sat.period} min</span>
+                    </div>
+                    <div class="popup-row">
+                        <span class="popup-label">Latitude:</span>
+                        <span>${pos.lat.toFixed(4)}°</span>
+                    </div>
+                    <div class="popup-row">
+                        <span class="popup-label">Longitude:</span>
+                        <span>${pos.lon.toFixed(4)}°</span>
+                    </div>
+                </div>
+            `;
+        }
+        
+        function calculatePosition(sat, time) {
+            // Simplified orbital position calculation
+            const orbitalPeriod = sat.period * 60; // seconds
+            const elapsed = time.getTime() / 1000;
+            const phase = (elapsed / orbitalPeriod) * 2 * Math.PI;
+            
+            // Sub-satellite point calculation (simplified)
+            const lat = Math.asin(Math.sin(sat.inc * Math.PI / 180) * Math.sin(phase)) * 180 / Math.PI;
+            const lon = ((elapsed * 360 / orbitalPeriod) + (phase * 180 / Math.PI)) % 360;
+            
+            return { lat, lon };
+        }
+        
+        function updatePositions() {
+            satellites.forEach(sat => {
+                const pos = calculatePosition(sat, currentTime);
+                
+                // Update marker
+                satelliteMarkers[sat.id].setLatLng([pos.lat, pos.lon]);
+                
+                // Update trail
+                const trailData = trailLines[sat.id];
+                trailData.points.push([pos.lat, pos.lon]);
+                
+                // Limit trail length
+                const maxPoints = sat.regime === 'GEO' ? 500 : 100;
+                while (trailData.points.length > maxPoints) {
+                    trailData.points.shift();
+                }
+                
+                trailData.line.setLatLngs(trailData.points);
+            });
+            
+            // Update display
+            document.getElementById('time-display').textContent = 
+                currentTime.toISOString().replace('T', ' ').substr(0, 19) + ' UTC';
+        }
+        
+        function populateSidebar() {
+            const list = document.getElementById('satellite-list');
+            list.innerHTML = '';
+            
+            satellites.forEach(sat => {
+                const pos = calculatePosition(sat, currentTime);
+                const card = document.createElement('div');
+                card.className = 'satellite-card';
+                card.dataset.id = sat.id;
+                card.innerHTML = `
+                    <div class="sat-header">
+                        <span class="sat-name">${sat.name}</span>
+                        <span class="sat-status nominal"></span>
+                    </div>
+                    <div class="sat-info">
+                        <div>
+                            <span>Regime:</span>
+                            <span>${sat.regime}</span>
+                        </div>
+                        <div>
+                            <span>Altitude:</span>
+                            <span>${sat.altitude.toLocaleString()} km</span>
+                        </div>
+                        <div>
+                            <span>Position:</span>
+                            <span>${pos.lat.toFixed(2)}°, ${pos.lon.toFixed(2)}°</span>
+                        </div>
+                    </div>
+                `;
+                
+                card.addEventListener('click', () => selectSatellite(sat.id));
+                list.appendChild(card);
+            });
+        }
+        
+        function populateSelect() {
+            const select = document.getElementById('satellite-select');
+            select.innerHTML = '<option value="all">All Satellites</option>';
+            
+            satellites.forEach(sat => {
+                const option = document.createElement('option');
+                option.value = sat.id;
+                option.textContent = sat.name;
+                select.appendChild(option);
+            });
+        }
+        
+        function selectSatellite(id) {
+            selectedSatellite = id;
+            
+            // Update sidebar
+            document.querySelectorAll('.satellite-card').forEach(card => {
+                card.classList.toggle('selected', card.dataset.id === id);
+            });
+            
+            // Show info overlay
+            if (id) {
+                const sat = satellites.find(s => s.id === id);
+                const pos = calculatePosition(sat, currentTime);
+                
+                document.getElementById('info-overlay').style.display = 'block';
+                document.getElementById('sat-info-content').innerHTML = `
+                    <div class="info-row">
+                        <span class="info-label">NAME:</span>
+                        <span class="info-value">${sat.name}</span>
+                    </div>
+                    <div class="info-row">
+                        <span class="info-label">REGIME:</span>
+                        <span class="info-value">${sat.regime}</span>
+                    </div>
+                    <div class="info-row">
+                        <span class="info-label">LAT:</span>
+                        <span class="info-value">${pos.lat.toFixed(4)}°</span>
+                    </div>
+                    <div class="info-row">
+                        <span class="info-label">LON:</span>
+                        <span class="info-value">${pos.lon.toFixed(4)}°</span>
+                    </div>
+                    <div class="info-row">
+                        <span class="info-label">ALT:</span>
+                        <span class="info-value">${sat.altitude} km</span>
+                    </div>
+                `;
+                
+                // Fly to satellite
+                map.flyTo([pos.lat, pos.lon], 4, { duration: 1 });
+            } else {
+                document.getElementById('info-overlay').style.display = 'none';
+            }
+        }
+        
+        function togglePlayback() {
+            isPlaying = !isPlaying;
+            
+            document.getElementById('btn-play').classList.toggle('active', isPlaying);
+            document.getElementById('btn-pause').classList.toggle('active', !isPlaying);
+            
+            if (isPlaying) {
+                animationInterval = setInterval(() => {
+                    const increment = 10 * playbackSpeed * 1000; // seconds
+                    currentTime = new Date(currentTime.getTime() + increment);
+                    updatePositions();
+                }, 100);
+            } else {
+                clearInterval(animationInterval);
+            }
+        }
+        
+        function adjustSpeed(delta) {
+            playbackSpeed = Math.max(1, Math.min(100, playbackSpeed + delta));
+            if (isPlaying) {
+                clearInterval(animationInterval);
+                togglePlayback();
+                togglePlayback();
+            }
+        }
+        
+        // Event listeners
+        document.getElementById('btn-play').addEventListener('click', togglePlayback);
+        document.getElementById('btn-pause').addEventListener('click', togglePlayback);
+        document.getElementById('btn-slower').addEventListener('click', () => adjustSpeed(-10));
+        document.getElementById('btn-faster').addEventListener('click', () => adjustSpeed(10));
+        
+        document.getElementById('btn-fullscreen').addEventListener('click', () => {
+            if (document.fullscreenElement) {
+                document.exitFullscreen();
+            } else {
+                document.documentElement.requestFullscreen();
+            }
+        });
+        
+        document.getElementById('satellite-select').addEventListener('change', (e) => {
+            const id = e.target.value;
+            selectSatellite(id === 'all' ? null : id);
+        });
+        
+        document.getElementById('regime-select').addEventListener('change', (e) => {
+            const regime = e.target.value;
+            
+            Object.entries(satelliteMarkers).forEach(([id, marker]) => {
+                const sat = satellites.find(s => s.id === id);
+                if (regime === 'all' || sat.regime === regime) {
+                    marker.addTo(map);
+                    trailLines[id].line.addTo(map);
+                } else {
+                    marker.remove();
+                    trailLines[id].line.remove();
+                }
+            });
+        });
+        
+        // Initialize
+        document.addEventListener('DOMContentLoaded', initMap);
+        
+        // Update sidebar periodically
+        setInterval(populateSidebar, 1000);
+    </script>
+</body>
+</html>

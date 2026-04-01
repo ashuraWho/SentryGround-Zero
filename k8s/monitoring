@@ -1,0 +1,211 @@
+apiVersion: 1
+providers:
+  - name: 'Prometheus'
+    type: prometheus
+    url: http://prometheus.monitoring:9090
+    access: proxy
+    isDefault: true
+
+---
+apiVersion: 1
+datasources:
+  - name: Prometheus
+    type: prometheus
+    access: proxy
+    url: http://prometheus.monitoring:9090
+    jsonData:
+      timeInterval: 15s
+      queryTimeout: 60s
+
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: prometheus-config
+  namespace: monitoring
+data:
+  prometheus.yml: |
+    global:
+      scrape_interval: 15s
+      evaluation_interval: 15s
+
+    scrape_configs:
+      - job_name: 'ground-segment'
+        static_configs:
+          - targets: ['ground-segment.sentryground-zero:8080']
+        metrics_path: '/metrics'
+
+      - job_name: 'web-dashboard'
+        static_configs:
+          - targets: ['web-dashboard.sentryground-zero:8501']
+
+      - job_name: 'websocket-server'
+        static_configs:
+          - targets: ['websocket-server.sentryground-zero:8765']
+
+      - job_name: 'postgres'
+        static_configs:
+          - targets: ['postgres-exporter.monitoring:9187']
+
+    alerting:
+      alertmanagers:
+        - static_configs:
+            - targets: ['alertmanager.monitoring:9093']
+
+    rule_files:
+      - '/etc/prometheus/rules/*.yml'
+
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: alert-rules
+  namespace: monitoring
+data:
+  alerts.yml: |
+    groups:
+      - name: sentryground_alerts
+        rules:
+          - alert: HighCPUUsage
+            expr: cpu_usage_percent > 80
+            for: 5m
+            labels:
+              severity: warning
+            annotations:
+              summary: "High CPU usage on {{ $labels.instance }}"
+
+          - alert: HighMemoryUsage
+            expr: memory_usage_percent > 85
+            for: 5m
+            labels:
+              severity: warning
+            annotations:
+              summary: "High memory usage on {{ $labels.instance }}"
+
+          - alert: ServiceDown
+            expr: up == 0
+            for: 1m
+            labels:
+              severity: critical
+            annotations:
+              summary: "{{ $labels.job }} is down"
+
+          - alert: HighErrorRate
+            expr: rate(http_requests_total{status=~"5.."}[5m]) > 0.05
+            for: 5m
+            labels:
+              severity: warning
+            annotations:
+              summary: "High error rate on {{ $labels.instance }}"
+
+          - alert: DiskSpaceLow
+            expr: disk_usage_percent > 90
+            for: 10m
+            labels:
+              severity: warning
+            annotations:
+              summary: "Low disk space on {{ $labels.instance }}"
+
+          - alert: SecurityThreatDetected
+            expr: security_events_total{severity="CRITICAL"} > 0
+            for: 1m
+            labels:
+              severity: critical
+            annotations:
+              summary: "Security threat detected!"
+
+          - alert: SatelliteOutOfContact
+            expr: satellite_contact_duration_seconds == 0
+            for: 30m
+            labels:
+              severity: critical
+            annotations:
+              summary: "Satellite {{ $labels.satellite_id }} out of contact"
+
+          - alert: ConjunctionAlert
+            expr: conjunction_miss_distance_km < 5
+            for: 1m
+            labels:
+              severity: critical
+            annotations:
+              summary: "Close conjunction predicted!"
+
+          - alert: SpaceWeatherWarning
+            expr: kp_index > 5
+            for: 15m
+            labels:
+              severity: warning
+            annotations:
+              summary: "Elevated geomagnetic activity"
+
+          - alert: DataPipelineStalled
+            expr: pipeline_stage_duration_seconds > 300
+            for: 30m
+            labels:
+              severity: warning
+            annotations:
+              summary: "Data pipeline stalled at {{ $labels.stage }}"
+
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: grafana-dashboards
+  namespace: monitoring
+data:
+  mission-control.json: |
+    {
+      "dashboard": {
+        "title": "SentryGround-Zero Mission Control",
+        "panels": [
+          {
+            "title": "System CPU Usage",
+            "type": "graph",
+            "targets": [
+              {"expr": "cpu_usage_percent"}
+            ],
+            "gridPos": {"x": 0, "y": 0, "w": 12, "h": 8}
+          },
+          {
+            "title": "Memory Usage",
+            "type": "graph",
+            "targets": [
+              {"expr": "memory_usage_percent"}
+            ],
+            "gridPos": {"x": 12, "y": 0, "w": 12, "h": 8}
+          },
+          {
+            "title": "Network Traffic",
+            "type": "graph",
+            "targets": [
+              {"expr": "rate(network_bytes_total[5m])"}
+            ],
+            "gridPos": {"x": 0, "y": 8, "w": 12, "h": 8}
+          },
+          {
+            "title": "Active Connections",
+            "type": "stat",
+            "targets": [
+              {"expr": "active_connections"}
+            ],
+            "gridPos": {"x": 12, "y": 8, "w": 6, "h": 4}
+          },
+          {
+            "title": "Security Events",
+            "type": "stat",
+            "targets": [
+              {"expr": "security_events_total"}
+            ],
+            "gridPos": {"x": 18, "y": 8, "w": 6, "h": 4}
+          },
+          {
+            "title": "Satellite Telemetry Status",
+            "type": "table",
+            "targets": [
+              {"expr": "satellite_telemetry{satellite_id=~\".*\"}"}
+            ],
+            "gridPos": {"x": 0, "y": 16, "w": 24, "h": 8}
+          }
+        ]
+      }
+    }

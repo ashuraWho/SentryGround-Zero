@@ -1,0 +1,54 @@
+# --- OS / Editor ---
+.DS_Store
+.vscode/
+.idea/
+
+# --- Python ---
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+*.egg-info/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+coverage.xml
+htmlcov/
+
+# Virtual envs
+.venv/
+venv/
+ENV/
+env/
+
+# --- Secrets / runtime artifacts ---
+**/secret.key
+**/simulation_data/
+**/*.db
+**/audit.log
+
+# --- CMake / C++ build artifacts ---
+**/build/
+**/build2/
+**/build_*/
+**/cmake-build-*/
+**/CMakeFiles/
+**/CMakeCache.txt
+**/cmake_install.cmake
+**/Makefile
+**/CTestTestfile.cmake
+**/Testing/
+**/*.o
+**/*.obj
+**/*.a
+**/*.so
+**/*.dylib
+**/*.dll
+**/*.exe
+
+# --- ML artifacts (keep repo lightweight) ---
+**/*.h5
+**/*.tflite
+**/shap_*.npy
+

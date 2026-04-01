@@ -1,0 +1,25 @@
+# Used when the Docker build context is the repository root, e.g.:
+#   docker build -f services/space-segment/Dockerfile .
+# Compose currently uses per-service contexts; see services/*/.dockerignore.
+
+.git
+**/.git
+.DS_Store
+**/.DS_Store
+
+# Python
+**/.venv/
+**/venv/
+**/__pycache__/
+**/.pytest_cache/
+
+# Ground segment runtime
+**/simulation_data/
+**/secret.key
+**/audit.log
+
+# Space segment build / ML
+**/core_engine/build/
+**/core_engine/build2/
+**/*.h5
+**/*.tflite

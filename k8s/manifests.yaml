@@ -1,0 +1,386 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: sentryground-zero
+  labels:
+    app.kubernetes.io/name: sentryground-zero
+    app.kubernetes.io/managed-by: kubectl
+
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: sentryground-config
+  namespace: sentryground-zero
+data:
+  DATABASE_HOST: "postgres.sentryground-zero.svc.cluster.local"
+  DATABASE_PORT: "5432"
+  USE_SQLITE: "0"
+  USE_ML: "1"
+  LOG_LEVEL: "INFO"
+
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: sentryground-secrets
+  namespace: sentryground-zero
+type: Opaque
+stringData:
+  postgres-password: "CHANGE_ME_IN_PRODUCTION"
+  encryption-key: "CHANGE_ME_32_BYTES_BASE64"
+  jwt-secret: "CHANGE_ME_RANDOM_SECRET"
+
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: postgres
+  namespace: sentryground-zero
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: postgres
+  template:
+    metadata:
+      labels:
+        app: postgres
+    spec:
+      containers:
+        - name: postgres
+          image: postgres:15-alpine
+          ports:
+            - containerPort: 5432
+          env:
+            - name: POSTGRES_USER
+              value: "sentry_admin"
+            - name: POSTGRES_DB
+              value: "eo_security"
+            - name: POSTGRES_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: sentryground-secrets
+                  key: postgres-password
+          resources:
+            requests:
+              memory: "256Mi"
+              cpu: "250m"
+            limits:
+              memory: "1Gi"
+              cpu: "1000m"
+          volumeMounts:
+            - name: postgres-data
+              mountPath: /var/lib/postgresql/data
+      volumes:
+        - name: postgres-data
+          persistentVolumeClaim:
+            claimName: postgres-pvc
+
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: postgres-pvc
+  namespace: sentryground-zero
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 10Gi
+  storageClassName: standard
+
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: ground-segment
+  namespace: sentryground-zero
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: ground-segment
+  template:
+    metadata:
+      labels:
+        app: ground-segment
+    spec:
+      containers:
+        - name: ground-segment
+          image: sentryground-zero/ground-segment:latest
+          ports:
+            - containerPort: 8080
+          env:
+            - name: PG_HOST
+              value: "postgres.sentryground-zero.svc.cluster.local"
+            - name: PG_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: sentryground-secrets
+                  key: postgres-password
+          envFrom:
+            - configMapRef:
+                name: sentryground-config
+          resources:
+            requests:
+              memory: "512Mi"
+              cpu: "500m"
+            limits:
+              memory: "2Gi"
+              cpu: "2000m"
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 8080
+            initialDelaySeconds: 30
+            periodSeconds: 10
+          readinessProbe:
+            httpGet:
+              path: /ready
+              port: 8080
+            initialDelaySeconds: 5
+            periodSeconds: 5
+      affinity:
+        podAntiAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+            - weight: 100
+              podAffinityTerm:
+                labelSelector:
+                  matchExpressions:
+                    - key: app
+                      operator: In
+                      values:
+                        - ground-segment
+                topologyKey: kubernetes.io/hostname
+
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: web-dashboard
+  namespace: sentryground-zero
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: web-dashboard
+  template:
+    metadata:
+      labels:
+        app: web-dashboard
+    spec:
+      containers:
+        - name: dashboard
+          image: sentryground-zero/ground-segment:latest
+          command: ["streamlit", "run", "web/dashboard.py"]
+          ports:
+            - containerPort: 8501
+          env:
+            - name: PG_HOST
+              value: "postgres.sentryground-zero.svc.cluster.local"
+            - name: PG_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: sentryground-secrets
+                  key: postgres-password
+          resources:
+            requests:
+              memory: "256Mi"
+              cpu: "250m"
+            limits:
+              memory: "1Gi"
+              cpu: "1000m"
+
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: websocket-server
+  namespace: sentryground-zero
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: websocket-server
+  template:
+    metadata:
+      labels:
+        app: websocket-server
+    spec:
+      containers:
+        - name: ws-server
+          image: sentryground-zero/ground-segment:latest
+          command: ["python", "-m", "secure_eo_pipeline.streaming.realtime_server"]
+          ports:
+            - containerPort: 8765
+          resources:
+            requests:
+              memory: "128Mi"
+              cpu: "100m"
+            limits:
+              memory: "512Mi"
+              cpu: "500m"
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: postgres
+  namespace: sentryground-zero
+spec:
+  selector:
+    app: postgres
+  ports:
+    - port: 5432
+      targetPort: 5432
+  clusterIP: None
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: ground-segment
+  namespace: sentryground-zero
+spec:
+  selector:
+    app: ground-segment
+  ports:
+    - port: 8080
+      targetPort: 8080
+  type: ClusterIP
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: web-dashboard
+  namespace: sentryground-zero
+spec:
+  selector:
+    app: web-dashboard
+  ports:
+    - port: 80
+      targetPort: 8501
+  type: LoadBalancer
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: websocket-server
+  namespace: sentryground-zero
+spec:
+  selector:
+    app: websocket-server
+  ports:
+    - port: 8765
+      targetPort: 8765
+  clusterIP: None
+
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: sentryground-network-policy
+  namespace: sentryground-zero
+spec:
+  podSelector: {}
+  policyTypes:
+    - Ingress
+    - Egress
+  ingress:
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              name: sentryground-zero
+      ports:
+        - protocol: TCP
+          port: 8080
+        - protocol: TCP
+          port: 8501
+        - protocol: TCP
+          port: 8765
+  egress:
+    - to:
+        - namespaceSelector: {}
+      ports:
+        - protocol: TCP
+          port: 5432
+        - protocol: TCP
+          port: 53
+        - protocol: UDP
+          port: 53
+
+---
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: ground-segment-hpa
+  namespace: sentryground-zero
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: ground-segment
+  minReplicas: 2
+  maxReplicas: 10
+  metrics:
+    - type: Resource
+      resource:
+        name: cpu
+        target:
+          type: Utilization
+          averageUtilization: 70
+    - type: Resource
+      resource:
+        name: memory
+        target:
+          type: Utilization
+          averageUtilization: 80
+
+---
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: ground-segment-pdb
+  namespace: sentryground-zero
+spec:
+  minAvailable: 1
+  selector:
+    matchLabels:
+      app: ground-segment
+
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: sentryground-sa
+  namespace: sentryground-zero
+
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: sentryground-role
+  namespace: sentryground-zero
+rules:
+  - apiGroups: [""]
+    resources: ["configmaps", "secrets"]
+    verbs: ["get", "list", "watch"]
+
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: sentryground-rolebinding
+  namespace: sentryground-zero
+subjects:
+  - kind: ServiceAccount
+    name: sentryground-sa
+    namespace: sentryground-zero
+roleRef:
+  kind: Role
+  name: sentryground-role
+  apiGroup: rbac.authorization.k8s.io

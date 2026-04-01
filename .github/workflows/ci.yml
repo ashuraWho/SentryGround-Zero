@@ -1,0 +1,230 @@
+name: CI/CD Pipeline
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+env:
+  DOCKER_BUILDKIT: 1
+  COMPOSE_DOCKER_CLI_BUILD: 1
+
+jobs:
+  lint:
+    name: Lint & Type Check
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Cache pip
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/pip
+          key: ${{ runner.os }}-pip-${{ hashFiles('services/ground-segment/requirements.txt') }}
+          restore-keys: |
+            ${{ runner.os }}-pip-
+
+      - name: Install linting tools
+        run: |
+          python -m pip install --upgrade pip
+          pip install ruff mypy
+
+      - name: Run Ruff linter
+        run: |
+          cd services/ground-segment
+          ruff check . --output-format=github || true
+
+      - name: Run MyPy type check
+        run: |
+          cd services/ground-segment
+          mypy secure_eo_pipeline/ --ignore-missing-imports || true
+
+  test-python:
+    name: Python Tests
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Cache pip
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/pip
+          key: ${{ runner.os }}-pip-${{ hashFiles('services/ground-segment/requirements.txt') }}
+          restore-keys: |
+            ${{ runner.os }}-pip-
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r services/ground-segment/requirements.txt
+          pip install pytest pytest-cov pytest-asyncio
+
+      - name: Run Python tests
+        run: |
+          cd services/ground-segment
+          python -m pytest tests/ -v --cov=secure_eo_pipeline --cov-report=xml -m "not e2e"
+
+      - name: Upload coverage
+        if: always()
+        uses: codecov/codecov-action@v4
+        with:
+          files: services/ground-segment/coverage.xml
+          fail_ci_if_error: false
+
+  docker-build:
+    name: Docker Build
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build ground segment image
+        uses: docker/build-push-action@v5
+        with:
+          context: ./services/ground-segment
+          push: false
+          tags: sentryground-zero/ground-segment:local
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Build space segment image
+        if: always()
+        uses: docker/build-push-action@v5
+        with:
+          context: ./services/space-segment
+          push: false
+          tags: sentryground-zero/space-segment:local
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+  docker-compose:
+    name: Docker Compose Validation
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Validate docker-compose
+        run: docker-compose config -q
+
+      - name: Pull base images
+        run: docker-compose pull postgres || true
+
+      - name: Start services
+        run: docker-compose up -d || true
+        timeout-minutes: 5
+
+      - name: Check services
+        if: always()
+        run: |
+          docker-compose ps || true
+          sleep 5
+          docker-compose logs | head -50 || true
+
+      - name: Stop services
+        if: always()
+        run: docker-compose down -v || true
+
+  security:
+    name: Security Scan
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Run pip-audit
+        run: |
+          pip install pip-audit
+          cd services/ground-segment
+          pip-audit -r requirements.txt || true
+
+      - name: Run safety check
+        run: |
+          pip install safety
+          cd services/ground-segment
+          safety check --stdin || true < requirements.txt
+
+  docs:
+    name: Documentation
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install documentation tools
+        run: |
+          pip install sphinx sphinx-rtd-theme myst-parser
+
+      - name: Build documentation
+        run: |
+          cd docs
+          sphinx-build -b html . _build/html || true
+
+      - name: Upload documentation
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: documentation
+          path: docs/_build/html
+
+  integration:
+    name: Integration Tests
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:15
+        env:
+          POSTGRES_PASSWORD: testpassword
+          POSTGRES_DB: eo_security
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 5432:5432
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install test dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r services/ground-segment/requirements.txt
+          pip install pytest httpx
+
+      - name: Run integration tests
+        env:
+          POSTGRES_HOST: localhost
+          POSTGRES_PASSWORD: testpassword
+          USE_SQLITE: 0
+        run: |
+          cd services/ground-segment
+          python -m pytest tests/test_e2e.py -v -k "not browser and not dashboard" || true

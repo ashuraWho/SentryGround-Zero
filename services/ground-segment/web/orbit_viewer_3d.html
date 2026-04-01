@@ -1,0 +1,885 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SentryGround-Zero | 3D Orbital Viewer</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Courier New', monospace;
+            background: #0A0E17;
+            color: #F9FAFB;
+            overflow: hidden;
+        }
+        
+        #container {
+            width: 100vw;
+            height: 100vh;
+            position: relative;
+        }
+        
+        #canvas-container {
+            width: 100%;
+            height: 100%;
+        }
+        
+        .header {
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            padding: 1rem 2rem;
+            background: linear-gradient(180deg, rgba(10,14,23,0.95) 0%, transparent 100%);
+            z-index: 100;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        
+        .logo {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+        }
+        
+        .logo h1 {
+            color: #00D4FF;
+            font-size: 1.5rem;
+            letter-spacing: 2px;
+        }
+        
+        .status-bar {
+            display: flex;
+            gap: 2rem;
+            font-size: 0.85rem;
+        }
+        
+        .status-item {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+        
+        .status-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: #10B981;
+            animation: pulse 2s infinite;
+        }
+        
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+        
+        .control-panel {
+            position: absolute;
+            top: 80px;
+            left: 1rem;
+            width: 280px;
+            background: rgba(17, 24, 39, 0.95);
+            border: 1px solid #374151;
+            border-radius: 8px;
+            padding: 1rem;
+            z-index: 100;
+        }
+        
+        .panel-title {
+            color: #00D4FF;
+            font-size: 0.9rem;
+            margin-bottom: 1rem;
+            border-bottom: 1px solid #374151;
+            padding-bottom: 0.5rem;
+        }
+        
+        .control-group {
+            margin-bottom: 1rem;
+        }
+        
+        .control-label {
+            color: #9CA3AF;
+            font-size: 0.75rem;
+            margin-bottom: 0.25rem;
+            display: block;
+        }
+        
+        .control-slider {
+            width: 100%;
+            -webkit-appearance: none;
+            height: 4px;
+            background: #374151;
+            border-radius: 2px;
+            outline: none;
+        }
+        
+        .control-slider::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            width: 14px;
+            height: 14px;
+            background: #00D4FF;
+            border-radius: 50%;
+            cursor: pointer;
+        }
+        
+        .control-input {
+            width: 100%;
+            padding: 0.5rem;
+            background: #1F2937;
+            border: 1px solid #374151;
+            border-radius: 4px;
+            color: #F9FAFB;
+            font-family: inherit;
+            font-size: 0.85rem;
+        }
+        
+        .btn {
+            padding: 0.5rem 1rem;
+            background: #374151;
+            border: 1px solid #00D4FF;
+            border-radius: 4px;
+            color: #00D4FF;
+            font-family: inherit;
+            font-size: 0.85rem;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        
+        .btn:hover {
+            background: #00D4FF;
+            color: #0A0E17;
+        }
+        
+        .btn-group {
+            display: flex;
+            gap: 0.5rem;
+            flex-wrap: wrap;
+        }
+        
+        .btn-group .btn {
+            flex: 1;
+            min-width: 60px;
+        }
+        
+        .btn.active {
+            background: #00D4FF;
+            color: #0A0E17;
+        }
+        
+        .satellite-list {
+            max-height: 200px;
+            overflow-y: auto;
+            margin-top: 0.5rem;
+        }
+        
+        .satellite-item {
+            padding: 0.5rem;
+            background: #1F2937;
+            border-radius: 4px;
+            margin-bottom: 0.5rem;
+            cursor: pointer;
+            transition: all 0.2s;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+        
+        .satellite-item:hover {
+            background: #374151;
+        }
+        
+        .satellite-item.selected {
+            border: 1px solid #00D4FF;
+        }
+        
+        .sat-color {
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+        }
+        
+        .sat-info {
+            flex: 1;
+        }
+        
+        .sat-name {
+            font-size: 0.85rem;
+            color: #F9FAFB;
+        }
+        
+        .sat-regime {
+            font-size: 0.7rem;
+            color: #9CA3AF;
+        }
+        
+        .info-panel {
+            position: absolute;
+            bottom: 1rem;
+            left: 1rem;
+            background: rgba(17, 24, 39, 0.95);
+            border: 1px solid #374151;
+            border-radius: 8px;
+            padding: 1rem;
+            z-index: 100;
+            min-width: 300px;
+        }
+        
+        .info-title {
+            color: #00D4FF;
+            font-size: 0.9rem;
+            margin-bottom: 0.5rem;
+        }
+        
+        .info-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 0.5rem;
+        }
+        
+        .info-item {
+            font-size: 0.8rem;
+        }
+        
+        .info-label {
+            color: #9CA3AF;
+        }
+        
+        .info-value {
+            color: #F9FAFB;
+        }
+        
+        .legend {
+            position: absolute;
+            bottom: 1rem;
+            right: 1rem;
+            background: rgba(17, 24, 39, 0.95);
+            border: 1px solid #374151;
+            border-radius: 8px;
+            padding: 1rem;
+            z-index: 100;
+        }
+        
+        .legend-title {
+            color: #00D4FF;
+            font-size: 0.85rem;
+            margin-bottom: 0.5rem;
+        }
+        
+        .legend-item {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            font-size: 0.8rem;
+            margin-bottom: 0.25rem;
+        }
+        
+        .legend-color {
+            width: 12px;
+            height: 3px;
+            border-radius: 1px;
+        }
+        
+        .projection-toggle {
+            position: absolute;
+            top: 80px;
+            right: 1rem;
+            z-index: 100;
+        }
+        
+        .loading {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            color: #00D4FF;
+            font-size: 1.2rem;
+            z-index: 1000;
+        }
+        
+        .loading::after {
+            content: '';
+            animation: dots 1.5s infinite;
+        }
+        
+        @keyframes dots {
+            0%, 20% { content: '.'; }
+            40% { content: '..'; }
+            60%, 100% { content: '...'; }
+        }
+        
+        ::-webkit-scrollbar {
+            width: 6px;
+        }
+        
+        ::-webkit-scrollbar-track {
+            background: #1F2937;
+        }
+        
+        ::-webkit-scrollbar-thumb {
+            background: #374151;
+            border-radius: 3px;
+        }
+        
+        ::-webkit-scrollbar-thumb:hover {
+            background: #00D4FF;
+        }
+    </style>
+</head>
+<body>
+    <div id="container">
+        <div id="canvas-container"></div>
+        
+        <div class="loading" id="loading">INITIALIZING</div>
+        
+        <div class="header">
+            <div class="logo">
+                <h1>🛰️ SENTRYGROUND-ZERO</h1>
+                <span style="color: #9CA3AF; font-size: 0.85rem;">3D ORBITAL VIEWER</span>
+            </div>
+            <div class="status-bar">
+                <div class="status-item">
+                    <span class="status-dot"></span>
+                    <span>CONSTELLATION ACTIVE</span>
+                </div>
+                <div class="status-item">
+                    <span id="clock" style="color: #00D4FF;"></span>
+                </div>
+            </div>
+        </div>
+        
+        <div class="control-panel">
+            <div class="panel-title">⬡ CONTROL PANEL</div>
+            
+            <div class="control-group">
+                <label class="control-label">CAMERA DISTANCE</label>
+                <input type="range" class="control-slider" id="camera-distance" min="50" max="500" value="150">
+            </div>
+            
+            <div class="control-group">
+                <label class="control-label">ROTATION SPEED</label>
+                <input type="range" class="control-slider" id="rotation-speed" min="0" max="100" value="30">
+            </div>
+            
+            <div class="control-group">
+                <label class="control-label">SATELLITE SIZE</label>
+                <input type="range" class="control-slider" id="sat-size" min="1" max="10" value="3">
+            </div>
+            
+            <div class="control-group">
+                <label class="control-label">TRAIL LENGTH</label>
+                <input type="range" class="control-slider" id="trail-length" min="10" max="200" value="50">
+            </div>
+            
+            <div class="control-group">
+                <label class="control-label">VIEW MODE</label>
+                <div class="btn-group">
+                    <button class="btn active" data-mode="standard">STANDARD</button>
+                    <button class="btn" data-mode="wireframe">WIRE</button>
+                    <button class="btn" data-mode="orbits">ORBITS</button>
+                </div>
+            </div>
+            
+            <div class="control-group">
+                <label class="control-label">SATELLITES</label>
+                <div class="satellite-list" id="satellite-list"></div>
+            </div>
+            
+            <div class="control-group">
+                <div class="btn-group">
+                    <button class="btn" id="btn-reset">RESET</button>
+                    <button class="btn" id="btn-follow">FOLLOW</button>
+                    <button class="btn" id="btn-animate">PAUSE</button>
+                </div>
+            </div>
+        </div>
+        
+        <div class="info-panel" id="info-panel" style="display: none;">
+            <div class="info-title">SATELLITE INFO</div>
+            <div class="info-grid">
+                <div class="info-item">
+                    <span class="info-label">NAME:</span>
+                    <span class="info-value" id="info-name">-</span>
+                </div>
+                <div class="info-item">
+                    <span class="info-label">REGIME:</span>
+                    <span class="info-value" id="info-regime">-</span>
+                </div>
+                <div class="info-item">
+                    <span class="info-label">ALTITUDE:</span>
+                    <span class="info-value" id="info-alt">-</span>
+                </div>
+                <div class="info-item">
+                    <span class="info-label">VELOCITY:</span>
+                    <span class="info-value" id="info-vel">-</span>
+                </div>
+                <div class="info-item">
+                    <span class="info-label">LATITUDE:</span>
+                    <span class="info-value" id="info-lat">-</span>
+                </div>
+                <div class="info-item">
+                    <span class="info-label">LONGITUDE:</span>
+                    <span class="info-value" id="info-lon">-</span>
+                </div>
+                <div class="info-item">
+                    <span class="info-label">PERIOD:</span>
+                    <span class="info-value" id="info-period">-</span>
+                </div>
+                <div class="info-item">
+                    <span class="info-label">INCLINATION:</span>
+                    <span class="info-value" id="info-inc">-</span>
+                </div>
+            </div>
+        </div>
+        
+        <div class="legend">
+            <div class="legend-title">ORBITAL REGIMES</div>
+            <div class="legend-item">
+                <div class="legend-color" style="background: #10B981;"></div>
+                <span>LEO (200-2000 km)</span>
+            </div>
+            <div class="legend-item">
+                <div class="legend-color" style="background: #F59E0B;"></div>
+                <span>MEO (2000-35000 km)</span>
+            </div>
+            <div class="legend-item">
+                <div class="legend-color" style="background: #EF4444;"></div>
+                <span>GEO (35786 km)</span>
+            </div>
+            <div class="legend-item">
+                <div class="legend-color" style="background: #8B5CF6;"></div>
+                <span>HEO (Highly Elliptical)</span>
+            </div>
+            <div class="legend-item">
+                <div class="legend-color" style="background: #00D4FF;"></div>
+                <span>Moon Transfer</span>
+            </div>
+        </div>
+    </div>
+    
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+    
+    <script>
+        // Global state
+        const state = {
+            satellites: [],
+            selectedSat: null,
+            isAnimating: true,
+            followMode: false,
+            viewMode: 'standard',
+            time: 0,
+            trailLength: 50,
+            satSize: 3,
+            rotationSpeed: 0.3
+        };
+        
+        // Satellite data
+        const satelliteData = [
+            { id: 'SENTRY-01', name: 'SENTRY-01 (EO)', regime: 'LEO', altitude: 550, inc: 97.4, color: 0x10B981, e: 0.0001 },
+            { id: 'SENTRY-02', name: 'SENTRY-02 (SAR)', regime: 'LEO', altitude: 540, inc: 53.0, color: 0x10B981, e: 0.001 },
+            { id: 'SENTRY-03', name: 'SENTRY-03 (GPS)', regime: 'MEO', altitude: 20180, inc: 63.4, color: 0xF59E0B, e: 0.01 },
+            { id: 'SENTRY-04', name: 'SENTRY-04 (COM)', regime: 'GEO', altitude: 35786, inc: 0.0, color: 0xEF4444, e: 0.00001 },
+            { id: 'SENTRY-05', name: 'SENTRY-05 (TDRS)', regime: 'HEO', altitude: 12000, inc: 63.4, color: 0x8B5CF6, e: 0.4 },
+            { id: 'SENTRY-06', name: 'SENTRY-06 (EO)', regime: 'LEO', altitude: 560, inc: 97.8, color: 0x10B981, e: 0.0002 },
+            { id: 'SENTRY-07', name: 'SENTRY-07 (Climate)', regime: 'LEO', altitude: 705, inc: 98.2, color: 0x10B981, e: 0.0001 },
+            { id: 'SENTRY-08', name: 'SENTRY-08 (Weather)', regime: 'GEO', altitude: 35786, inc: 0.1, color: 0xEF4444, e: 0.00002 },
+        ];
+        
+        // Three.js setup
+        let scene, camera, renderer, controls;
+        let earth, satellites = [], orbitLines = [], trails = [];
+        let ambientLight, directionalLight;
+        
+        function init() {
+            // Scene
+            scene = new THREE.Scene();
+            scene.background = new THREE.Color(0x0A0E17);
+            
+            // Camera
+            camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 10000);
+            camera.position.set(0, 80, 150);
+            
+            // Renderer
+            renderer = new THREE.WebGLRenderer({ antialias: true });
+            renderer.setSize(window.innerWidth, window.innerHeight);
+            renderer.setPixelRatio(window.devicePixelRatio);
+            document.getElementById('canvas-container').appendChild(renderer.domElement);
+            
+            // Controls
+            controls = new THREE.OrbitControls(camera, renderer.domElement);
+            controls.enableDamping = true;
+            controls.dampingFactor = 0.05;
+            controls.minDistance = 30;
+            controls.maxDistance = 500;
+            
+            // Lights
+            ambientLight = new THREE.AmbientLight(0x404040, 0.5);
+            scene.add(ambientLight);
+            
+            directionalLight = new THREE.DirectionalLight(0xffffff, 1);
+            directionalLight.position.set(50, 30, 50);
+            scene.add(directionalLight);
+            
+            // Create objects
+            createStarfield();
+            createEarth();
+            createSatellites();
+            createOrbits();
+            
+            // Populate satellite list
+            populateSatelliteList();
+            
+            // Event listeners
+            setupEventListeners();
+            
+            // Hide loading
+            document.getElementById('loading').style.display = 'none';
+            
+            // Start animation
+            animate();
+            
+            // Update clock
+            updateClock();
+            setInterval(updateClock, 1000);
+        }
+        
+        function createStarfield() {
+            const starsGeometry = new THREE.BufferGeometry();
+            const starsMaterial = new THREE.PointsMaterial({
+                color: 0xffffff,
+                size: 0.5,
+                transparent: true,
+                opacity: 0.8
+            });
+            
+            const starsVertices = [];
+            for (let i = 0; i < 5000; i++) {
+                const x = THREE.MathUtils.randFloatSpread(2000);
+                const y = THREE.MathUtils.randFloatSpread(2000);
+                const z = THREE.MathUtils.randFloatSpread(2000);
+                starsVertices.push(x, y, z);
+            }
+            
+            starsGeometry.setAttribute('position', new THREE.Float32BufferAttribute(starsVertices, 3));
+            const stars = new THREE.Points(starsGeometry, starsMaterial);
+            scene.add(stars);
+        }
+        
+        function createEarth() {
+            // Earth sphere
+            const earthGeometry = new THREE.SphereGeometry(10, 64, 64);
+            const earthMaterial = new THREE.MeshPhongMaterial({
+                color: 0x1E3A5F,
+                specular: 0x111111,
+                shininess: 25
+            });
+            earth = new THREE.Mesh(earthGeometry, earthMaterial);
+            scene.add(earth);
+            
+            // Atmosphere glow
+            const atmosphereGeometry = new THREE.SphereGeometry(10.15, 64, 64);
+            const atmosphereMaterial = new THREE.MeshPhongMaterial({
+                color: 0x00D4FF,
+                transparent: true,
+                opacity: 0.1,
+                side: THREE.BackSide
+            });
+            const atmosphere = new THREE.Mesh(atmosphereGeometry, atmosphereMaterial);
+            scene.add(atmosphere);
+            
+            // Grid lines
+            const gridHelper = new THREE.PolarGridHelper(30, 16, 8, 64, 0x1F2937, 0x1F2937);
+            gridHelper.rotation.x = Math.PI / 2;
+            scene.add(gridHelper);
+            
+            // Equator line
+            const equatorGeometry = new THREE.RingGeometry(10.2, 10.3, 128);
+            const equatorMaterial = new THREE.MeshBasicMaterial({ color: 0x374151, side: THREE.DoubleSide });
+            const equator = new THREE.Mesh(equatorGeometry, equatorMaterial);
+            equator.rotation.x = Math.PI / 2;
+            scene.add(equator);
+        }
+        
+        function createSatellites() {
+            satelliteData.forEach((data, index) => {
+                // Satellite mesh
+                const satGeometry = new THREE.OctahedronGeometry(state.satSize, 0);
+                const satMaterial = new THREE.MeshPhongMaterial({
+                    color: data.color,
+                    emissive: data.color,
+                    emissiveIntensity: 0.3
+                });
+                const satMesh = new THREE.Mesh(satGeometry, satMaterial);
+                
+                // Calculate initial position
+                const pos = calculateOrbitalPosition(data, 0);
+                satMesh.position.set(pos.x, pos.y, pos.z);
+                
+                // Trail
+                const trailGeometry = new THREE.BufferGeometry();
+                const trailPositions = new Float32Array(state.trailLength * 3);
+                for (let i = 0; i < state.trailLength; i++) {
+                    const p = calculateOrbitalPosition(data, (i / state.trailLength) * Math.PI * 2);
+                    trailPositions[i * 3] = p.x;
+                    trailPositions[i * 3 + 1] = p.y;
+                    trailPositions[i * 3 + 2] = p.z;
+                }
+                trailGeometry.setAttribute('position', new THREE.BufferAttribute(trailPositions, 3));
+                const trailMaterial = new THREE.LineBasicMaterial({ color: data.color, transparent: true, opacity: 0.5 });
+                const trail = new THREE.Line(trailGeometry, trailMaterial);
+                
+                // Glow effect
+                const glowGeometry = new THREE.SphereGeometry(state.satSize * 1.5, 16, 16);
+                const glowMaterial = new THREE.MeshBasicMaterial({
+                    color: data.color,
+                    transparent: true,
+                    opacity: 0.2
+                });
+                const glow = new THREE.Mesh(glowGeometry, glowMaterial);
+                satMesh.add(glow);
+                
+                scene.add(satMesh);
+                scene.add(trail);
+                
+                satellites.push({
+                    mesh: satMesh,
+                    trail: trail,
+                    data: data,
+                    trailIndex: 0
+                });
+                
+                trails.push({ trail, geometry: trailGeometry, data });
+            });
+        }
+        
+        function calculateOrbitalPosition(data, angle) {
+            const a = data.altitude / 10 + 10; // Scale for visualization
+            const e = data.e;
+            const inc = THREE.MathUtils.degToRad(data.inc);
+            
+            // Simplified orbital position (not true SGP4)
+            const r = a * (1 - e * e) / (1 + e * Math.cos(angle));
+            const x = r * Math.cos(angle);
+            const y = r * Math.sin(angle) * Math.sin(inc);
+            const z = r * Math.sin(angle) * Math.cos(inc);
+            
+            return { x, y, z };
+        }
+        
+        function createOrbits() {
+            satelliteData.forEach((data) => {
+                const points = [];
+                for (let i = 0; i <= 128; i++) {
+                    const angle = (i / 128) * Math.PI * 2;
+                    points.push(new THREE.Vector3().setFromSphericalCoords(1, 
+                        THREE.MathUtils.degToRad(data.inc), 
+                        angle
+                    ).multiplyScalar(data.altitude / 10 + 10));
+                }
+                
+                const orbitGeometry = new THREE.BufferGeometry().setFromPoints(points);
+                const orbitMaterial = new THREE.LineBasicMaterial({ 
+                    color: data.color, 
+                    transparent: true, 
+                    opacity: 0.2 
+                });
+                const orbit = new THREE.Line(orbitGeometry, orbitMaterial);
+                
+                scene.add(orbit);
+                orbitLines.push(orbit);
+            });
+        }
+        
+        function populateSatelliteList() {
+            const list = document.getElementById('satellite-list');
+            list.innerHTML = '';
+            
+            satelliteData.forEach((data, index) => {
+                const item = document.createElement('div');
+                item.className = 'satellite-item';
+                item.dataset.index = index;
+                item.innerHTML = `
+                    <div class="sat-color" style="background: #${data.color.toString(16).padStart(6, '0')};"></div>
+                    <div class="sat-info">
+                        <div class="sat-name">${data.name}</div>
+                        <div class="sat-regime">${data.regime} | ${data.altitude.toLocaleString()} km</div>
+                    </div>
+                `;
+                item.addEventListener('click', () => selectSatellite(index));
+                list.appendChild(item);
+            });
+        }
+        
+        function selectSatellite(index) {
+            // Update UI
+            document.querySelectorAll('.satellite-item').forEach(item => {
+                item.classList.remove('selected');
+            });
+            document.querySelector(`[data-index="${index}"]`).classList.add('selected');
+            
+            state.selectedSat = index;
+            const sat = satellites[index];
+            
+            // Show info panel
+            const infoPanel = document.getElementById('info-panel');
+            infoPanel.style.display = 'block';
+            
+            document.getElementById('info-name').textContent = sat.data.name;
+            document.getElementById('info-regime').textContent = sat.data.regime;
+            document.getElementById('info-alt').textContent = sat.data.altitude.toLocaleString() + ' km';
+            document.getElementById('info-vel').textContent = calculateVelocity(sat.data.altitude).toFixed(2) + ' km/s';
+            document.getElementById('info-lat').textContent = '0.00°';
+            document.getElementById('info-lon').textContent = '0.00°';
+            document.getElementById('info-period').textContent = calculatePeriod(sat.data.altitude).toFixed(0) + ' min';
+            document.getElementById('info-inc').textContent = sat.data.inc.toFixed(1) + '°';
+            
+            // Follow satellite
+            state.followMode = true;
+            document.getElementById('btn-follow').classList.add('active');
+        }
+        
+        function calculateVelocity(altitude) {
+            const r = altitude + 6371;
+            return Math.sqrt(398600 / r);
+        }
+        
+        function calculatePeriod(altitude) {
+            const a = altitude + 6371;
+            return 2 * Math.PI * Math.sqrt(Math.pow(a, 3) / 398600) / 60;
+        }
+        
+        function setupEventListeners() {
+            // Sliders
+            document.getElementById('camera-distance').addEventListener('input', (e) => {
+                camera.position.setLength(e.target.value);
+            });
+            
+            document.getElementById('rotation-speed').addEventListener('input', (e) => {
+                state.rotationSpeed = e.target.value / 100;
+            });
+            
+            document.getElementById('sat-size').addEventListener('input', (e) => {
+                state.satSize = parseFloat(e.target.value);
+                updateSatelliteSizes();
+            });
+            
+            document.getElementById('trail-length').addEventListener('input', (e) => {
+                state.trailLength = parseInt(e.target.value);
+            });
+            
+            // View mode buttons
+            document.querySelectorAll('[data-mode]').forEach(btn => {
+                btn.addEventListener('click', () => {
+                    document.querySelectorAll('[data-mode]').forEach(b => b.classList.remove('active'));
+                    btn.classList.add('active');
+                    state.viewMode = btn.dataset.mode;
+                    updateViewMode();
+                });
+            });
+            
+            // Control buttons
+            document.getElementById('btn-reset').addEventListener('click', resetView);
+            document.getElementById('btn-follow').addEventListener('click', toggleFollow);
+            document.getElementById('btn-animate').addEventListener('click', toggleAnimation);
+            
+            // Window resize
+            window.addEventListener('resize', onWindowResize);
+        }
+        
+        function updateSatelliteSizes() {
+            satellites.forEach(sat => {
+                sat.mesh.scale.setScalar(state.satSize);
+            });
+        }
+        
+        function updateViewMode() {
+            switch (state.viewMode) {
+                case 'wireframe':
+                    earth.material.wireframe = true;
+                    orbitLines.forEach(line => line.visible = true);
+                    break;
+                case 'orbits':
+                    earth.material.wireframe = false;
+                    orbitLines.forEach(line => line.visible = true);
+                    break;
+                default:
+                    earth.material.wireframe = false;
+                    orbitLines.forEach(line => line.visible = false);
+            }
+        }
+        
+        function resetView() {
+            camera.position.set(0, 80, 150);
+            controls.target.set(0, 0, 0);
+            state.followMode = false;
+            document.getElementById('btn-follow').classList.remove('active');
+        }
+        
+        function toggleFollow() {
+            state.followMode = !state.followMode;
+            document.getElementById('btn-follow').classList.toggle('active', state.followMode);
+        }
+        
+        function toggleAnimation() {
+            state.isAnimating = !state.isAnimating;
+            document.getElementById('btn-animate').textContent = state.isAnimating ? 'PAUSE' : 'PLAY';
+        }
+        
+        function onWindowResize() {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        }
+        
+        function updateClock() {
+            const now = new Date();
+            document.getElementById('clock').textContent = now.toISOString().replace('T', ' ').substr(0, 19) + ' UTC';
+        }
+        
+        function animate() {
+            requestAnimationFrame(animate);
+            
+            if (state.isAnimating) {
+                state.time += state.rotationSpeed * 0.01;
+                
+                // Update satellite positions
+                satellites.forEach((sat, index) => {
+                    const pos = calculateOrbitalPosition(sat.data, state.time * (100 / (sat.data.altitude + 100)));
+                    sat.mesh.position.set(pos.x, pos.y, pos.z);
+                    sat.mesh.rotation.x += 0.01;
+                    sat.mesh.rotation.y += 0.01;
+                    
+                    // Update trail
+                    const positions = sat.trail.geometry.attributes.position.array;
+                    positions.copyWithin(3, 0, positions.length - 3);
+                    positions[positions.length - 3] = pos.x;
+                    positions[positions.length - 2] = pos.y;
+                    positions[positions.length - 1] = pos.z;
+                    sat.trail.geometry.attributes.position.needsUpdate = true;
+                });
+                
+                // Rotate earth slowly
+                earth.rotation.y += 0.0005;
+            }
+            
+            // Follow selected satellite
+            if (state.followMode && state.selectedSat !== null) {
+                const sat = satellites[state.selectedSat];
+                controls.target.lerp(sat.mesh.position, 0.1);
+            }
+            
+            controls.update();
+            renderer.render(scene, camera);
+        }
+        
+        // Initialize on load
+        window.addEventListener('load', init);
+    </script>
+</body>
+</html>

@@ -1,0 +1,903 @@
+openapi: 3.0.3
+info:
+  title: SentryGround-Zero Mission Control API
+  description: |
+    Comprehensive API for satellite monitoring, Earth observation, and space surveillance.
+    
+    ## Features
+    - Real-time satellite telemetry streaming
+    - Orbital mechanics calculations
+    - Climate and cosmology simulations
+    - Gravitational wave detection
+    - Exoplanet transit analysis
+    - Dark matter studies
+    - Planetary defense (NEO tracking)
+    - Space weather monitoring
+    - Collision avoidance predictions
+    - Secure data ingestion and processing
+    
+    ## Authentication
+    All endpoints except `/health` and `/auth/login` require Bearer token authentication.
+  version: 1.0.0
+  contact:
+    name: SentryGround-Zero Support
+    email: support@sentryground.zero
+  license:
+    name: Proprietary
+
+servers:
+  - url: https://api.sentryground.zero/v1
+    description: Production server
+  - url: http://localhost:8080/api/v1
+    description: Development server
+
+tags:
+  - name: Authentication
+    description: Authentication and session management
+  - name: Satellites
+    description: Satellite catalog and telemetry
+  - name: Orbital
+    description: Orbital mechanics and propagation
+  - name: Science
+    description: Scientific simulations and analysis
+  - name: Security
+    description: Cybersecurity and monitoring
+  - name: Data
+    description: Data pipeline operations
+  - name: Health
+    description: System health and diagnostics
+
+paths:
+  /health:
+    get:
+      tags:
+        - Health
+      summary: System health check
+      description: Returns the health status of the API service
+      operationId: getHealth
+      responses:
+        '200':
+          description: System is healthy
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HealthStatus'
+        '503':
+          description: System is unhealthy
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HealthStatus'
+
+  /auth/login:
+    post:
+      tags:
+        - Authentication
+      summary: Authenticate user
+      description: Authenticate user credentials and obtain access token
+      operationId: login
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LoginRequest'
+      responses:
+        '200':
+          description: Authentication successful
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LoginResponse'
+        '401':
+          description: Invalid credentials
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+      security: []
+
+  /auth/logout:
+    post:
+      tags:
+        - Authentication
+      summary: Logout user
+      description: Invalidate current session
+      operationId: logout
+      responses:
+        '200':
+          description: Logged out successfully
+      security:
+        - BearerAuth: []
+
+  /auth/refresh:
+    post:
+      tags:
+        - Authentication
+      summary: Refresh access token
+      description: Get new access token using refresh token
+      operationId: refreshToken
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RefreshRequest'
+      responses:
+        '200':
+          description: Token refreshed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LoginResponse'
+      security:
+        - BearerAuth: []
+
+  /satellites:
+    get:
+      tags:
+        - Satellites
+      summary: List all satellites
+      description: Get list of all satellites in the constellation
+      operationId: listSatellites
+      parameters:
+        - name: regime
+          in: query
+          description: Filter by orbital regime
+          schema:
+            type: string
+            enum: [LEO, MEO, GEO, HEO, Lunar]
+        - name: status
+          in: query
+          description: Filter by status
+          schema:
+            type: string
+            enum: [ACTIVE, STANDBY, MAINTENANCE, DECOMMISSIONED]
+      responses:
+        '200':
+          description: List of satellites
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SatelliteList'
+      security:
+        - BearerAuth: []
+
+  /satellites/{satelliteId}:
+    get:
+      tags:
+        - Satellites
+      summary: Get satellite details
+      description: Get detailed information about a specific satellite
+      operationId: getSatellite
+      parameters:
+        - name: satelliteId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Satellite details
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Satellite'
+        '404':
+          description: Satellite not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+      security:
+        - BearerAuth: []
+
+  /satellites/{satelliteId}/telemetry:
+    get:
+      tags:
+        - Satellites
+      summary: Get satellite telemetry
+      description: Get latest telemetry data for a satellite
+      operationId: getTelemetry
+      parameters:
+        - name: satelliteId
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 100
+      responses:
+        '200':
+          description: Telemetry data
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TelemetryResponse'
+      security:
+        - BearerAuth: []
+
+  /orbital/propagate:
+    post:
+      tags:
+        - Orbital
+      summary: Propagate orbit
+      description: Propagate satellite position using SGP4
+      operationId: propagateOrbit
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PropagateRequest'
+      responses:
+        '200':
+          description: Propagated state
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OrbitalState'
+      security:
+        - BearerAuth: []
+
+  /orbital/collision-check:
+    post:
+      tags:
+        - Orbital
+      summary: Check for collisions
+      description: Predict potential collisions between objects
+      operationId: checkCollisions
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CollisionCheckRequest'
+      responses:
+        '200':
+          description: Collision analysis
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CollisionReport'
+      security:
+        - BearerAuth: []
+
+  /science/climate:
+    post:
+      tags:
+        - Science
+      summary: Run climate simulation
+      description: Run climate model simulation
+      operationId: runClimateSimulation
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ClimateSimulationRequest'
+      responses:
+        '200':
+          description: Simulation results
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ClimateSimulationResponse'
+      security:
+        - BearerAuth: []
+
+  /science/cosmology:
+    post:
+      tags:
+        - Science
+      summary: Run cosmology simulation
+      description: Run cosmological simulation
+      operationId: runCosmologySimulation
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CosmologyRequest'
+      responses:
+        '200':
+          description: Simulation results
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CosmologyResponse'
+      security:
+        - BearerAuth: []
+
+  /science/gravitational-waves:
+    post:
+      tags:
+        - Science
+      summary: Analyze gravitational waves
+      description: Detect and analyze gravitational wave signals
+      operationId: analyzeGravitationalWaves
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/GWAnalysisRequest'
+      responses:
+        '200':
+          description: Analysis results
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GWAnalysisResponse'
+      security:
+        - BearerAuth: []
+
+  /science/exoplanets:
+    post:
+      tags:
+        - Science
+      summary: Analyze exoplanet transit
+      description: Analyze exoplanet transit lightcurve
+      operationId: analyzeExoplanet
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ExoplanetRequest'
+      responses:
+        '200':
+          description: Transit analysis
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ExoplanetResponse'
+      security:
+        - BearerAuth: []
+
+  /science/neo:
+    get:
+      tags:
+        - Science
+      summary: List NEOs
+      description: Get Near-Earth Object catalog
+      operationId: listNEOs
+      parameters:
+        - name: min_diameter
+          in: query
+          schema:
+            type: number
+        - name: max_diameter
+          in: query
+          schema:
+            type: number
+        - name: hazard_only
+          in: query
+          schema:
+            type: boolean
+      responses:
+        '200':
+          description: NEO catalog
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/NEOResponse'
+      security:
+        - BearerAuth: []
+
+  /space-weather:
+    get:
+      tags:
+        - Science
+      summary: Get space weather
+      description: Get current space weather conditions
+      operationId: getSpaceWeather
+      responses:
+        '200':
+          description: Space weather report
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SpaceWeatherReport'
+      security:
+        - BearerAuth: []
+
+  /security/scan:
+    post:
+      tags:
+        - Security
+      summary: Run security scan
+      description: Run security vulnerability scan
+      operationId: runSecurityScan
+      responses:
+        '202':
+          description: Scan started
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ScanResponse'
+      security:
+        - BearerAuth: []
+
+  /security/alerts:
+    get:
+      tags:
+        - Security
+      summary: Get security alerts
+      description: Get current security alerts
+      operationId: getSecurityAlerts
+      parameters:
+        - name: severity
+          in: query
+          schema:
+            type: string
+            enum: [LOW, MEDIUM, HIGH, CRITICAL]
+      responses:
+        '200':
+          description: List of alerts
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SecurityAlertsResponse'
+      security:
+        - BearerAuth: []
+
+  /data/ingest:
+    post:
+      tags:
+        - Data
+      summary: Ingest data
+      description: Ingest satellite data product
+      operationId: ingestData
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/IngestRequest'
+      responses:
+        '201':
+          description: Data ingested
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/IngestResponse'
+      security:
+        - BearerAuth: []
+
+  /data/pipeline/status:
+    get:
+      tags:
+        - Data
+      summary: Get pipeline status
+      description: Get status of data pipeline
+      operationId: getPipelineStatus
+      responses:
+        '200':
+          description: Pipeline status
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PipelineStatus'
+      security:
+        - BearerAuth: []
+
+components:
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: JWT token obtained from /auth/login
+
+  schemas:
+    HealthStatus:
+      type: object
+      properties:
+        status:
+          type: string
+          enum: [healthy, unhealthy]
+        timestamp:
+          type: string
+          format: date-time
+        version:
+          type: string
+
+    LoginRequest:
+      type: object
+      required:
+        - username
+        - password
+      properties:
+        username:
+          type: string
+        password:
+          type: string
+
+    LoginResponse:
+      type: object
+      properties:
+        token:
+          type: string
+        refresh_token:
+          type: string
+        expires_in:
+          type: integer
+        user:
+          $ref: '#/components/schemas/User'
+
+    RefreshRequest:
+      type: object
+      required:
+        - refresh_token
+      properties:
+        refresh_token:
+          type: string
+
+    User:
+      type: object
+      properties:
+        username:
+          type: string
+        role:
+          type: string
+          enum: [admin, analyst, user]
+        permissions:
+          type: array
+          items:
+            type: string
+
+    SatelliteList:
+      type: object
+      properties:
+        satellites:
+          type: array
+          items:
+            $ref: '#/components/schemas/Satellite'
+        total:
+          type: integer
+
+    Satellite:
+      type: object
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        hostname:
+          type: string
+        regime:
+          type: string
+        altitude:
+          type: number
+        inclination:
+          type: number
+        status:
+          type: string
+        mission_profile:
+          type: string
+
+    TelemetryResponse:
+      type: object
+      properties:
+        satellite_id:
+          type: string
+        timestamp:
+          type: string
+          format: date-time
+        latitude:
+          type: number
+        longitude:
+          type: number
+        altitude:
+          type: number
+        velocity:
+          type: number
+        temperature:
+          type: number
+        battery_level:
+          type: number
+        signal_strength:
+          type: number
+
+    PropagateRequest:
+      type: object
+      required:
+        - tle
+        - epoch
+      properties:
+        tle:
+          $ref: '#/components/schemas/TLE'
+        epoch:
+          type: string
+          format: date-time
+
+    TLE:
+      type: object
+      properties:
+        name:
+          type: string
+        inclination:
+          type: number
+        raan:
+          type: number
+        eccentricity:
+          type: number
+        argument_perigee:
+          type: number
+        mean_anomaly:
+          type: number
+        mean_motion:
+          type: number
+
+    OrbitalState:
+      type: object
+      properties:
+        x:
+          type: number
+        y:
+          type: number
+        z:
+          type: number
+        vx:
+          type: number
+        vy:
+          type: number
+        vz:
+          type: number
+
+    CollisionCheckRequest:
+      type: object
+      required:
+        - primary
+        - secondary
+      properties:
+        primary:
+          $ref: '#/components/schemas/TLE'
+        secondary:
+          $ref: '#/components/schemas/TLE'
+        start_time:
+          type: string
+          format: date-time
+        end_time:
+          type: string
+          format: date-time
+
+    CollisionReport:
+      type: object
+      properties:
+        has_conjunction:
+          type: boolean
+        miss_distance_km:
+          type: number
+        tca:
+          type: string
+          format: date-time
+        probability:
+          type: number
+        risk_level:
+          type: string
+          enum: [LOW, MEDIUM, HIGH, CRITICAL]
+
+    ClimateSimulationRequest:
+      type: object
+      properties:
+        years:
+          type: integer
+          default: 100
+        co2_scenario:
+          type: string
+          enum: [current, ssp126, ssp245, ssp370, ssp585]
+
+    ClimateSimulationResponse:
+      type: object
+      properties:
+        temperature_anomaly:
+          type: array
+          items:
+            type: number
+        co2_concentration:
+          type: array
+          items:
+            type: number
+        sea_level:
+          type: array
+          items:
+            type: number
+        years:
+          type: array
+          items:
+            type: integer
+
+    CosmologyRequest:
+      type: object
+      properties:
+        box_size:
+          type: number
+        num_particles:
+          type: integer
+        z_start:
+          type: number
+
+    CosmologyResponse:
+      type: object
+      properties:
+        power_spectrum:
+          type: object
+        hubble_parameter:
+          type: object
+        age_universe:
+          type: number
+
+    GWAnalysisRequest:
+      type: object
+      properties:
+        strain_data:
+          type: array
+          items:
+            type: number
+        sample_rate:
+          type: number
+
+    GWAnalysisResponse:
+      type: object
+      properties:
+        chirp_mass:
+          type: number
+        distance:
+          type: number
+        classification:
+          type: string
+        snr:
+          type: number
+
+    ExoplanetRequest:
+      type: object
+      properties:
+        transit_data:
+          type: array
+          items:
+            type: number
+        period:
+          type: number
+        rp_rs:
+          type: number
+
+    ExoplanetResponse:
+      type: object
+      properties:
+        habitable:
+          type: boolean
+        confidence:
+          type: number
+        parameters:
+          type: object
+
+    NEOResponse:
+      type: object
+      properties:
+        objects:
+          type: array
+          items:
+            $ref: '#/components/schemas/NEO'
+        total:
+          type: integer
+
+    NEO:
+      type: object
+      properties:
+        designation:
+          type: string
+        diameter_km:
+          type: number
+        hazardous:
+          type: boolean
+        miss_distance_km:
+          type: number
+        impact_probability:
+          type: number
+
+    SpaceWeatherReport:
+      type: object
+      properties:
+        kp_index:
+          type: number
+        solar_flux:
+          type: number
+        solar_wind_speed:
+          type: number
+        bz_interplanetary:
+          type: number
+        radiation_dose:
+          type: number
+
+    ScanResponse:
+      type: object
+      properties:
+        scan_id:
+          type: string
+        status:
+          type: string
+
+    SecurityAlertsResponse:
+      type: object
+      properties:
+        alerts:
+          type: array
+          items:
+            $ref: '#/components/schemas/SecurityAlert'
+
+    SecurityAlert:
+      type: object
+      properties:
+        id:
+          type: string
+        severity:
+          type: string
+          enum: [LOW, MEDIUM, HIGH, CRITICAL]
+        type:
+          type: string
+        description:
+          type: string
+        timestamp:
+          type: string
+          format: date-time
+
+    IngestRequest:
+      type: object
+      required:
+        - product_id
+        - type
+      properties:
+        product_id:
+          type: string
+        type:
+          type: string
+          enum: [level_0, level_1, level_2]
+        satellite:
+          type: string
+        timestamp:
+          type: string
+          format: date-time
+
+    IngestResponse:
+      type: object
+      properties:
+        product_id:
+          type: string
+        status:
+          type: string
+        checksum:
+          type: string
+
+    PipelineStatus:
+      type: object
+      properties:
+        stages:
+          type: array
+          items:
+            type: object
+            properties:
+              name:
+                type: string
+              status:
+                type: string
+              started_at:
+                type: string
+                format: date-time
+              completed_at:
+                type: string
+                format: date-time
+
+    Error:
+      type: object
+      properties:
+        error:
+          type: string
+        message:
+          type: string
+        code:
+          type: string

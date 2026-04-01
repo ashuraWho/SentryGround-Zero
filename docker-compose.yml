@@ -1,94 +1,204 @@
 version: '3.8'
 
+x-satellite-template: &satellite
+  image: sentryground-zero/space-segment:local
+  environment:
+    - PYTHONUNBUFFERED=1
+  depends_on:
+    - sentry-space-image
+
+x-security-config: &security-config
+  security_opt:
+    - no-new-privileges:true
+  read_only: false
+  cap_drop:
+    - ALL
+
 services:
   db:
     image: postgres:15-alpine
     environment:
       POSTGRES_USER: sentry_admin
-      POSTGRES_PASSWORD: secure_password_123
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-secure_password_123}
       POSTGRES_DB: eo_security
+      POSTGRES_HOST_AUTH_METHOD: md5
     volumes:
       - pgdata:/var/lib/postgresql/data
+    <<: *security-config
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U sentry_admin -d eo_security"]
-      interval: 5s
+      interval: 10s
       timeout: 5s
       retries: 5
 
-  # --- SATELLITE CONSTELLATION SWARM ---
-  
-  sentry-astro-1:
-    build: 
-      context: ./SentrySat
+  certs:
+    image: alpine:latest
+    volumes:
+      - ./certs:/certs:ro
+    command: >
+      sh -c "
+        apk add --no-cache openssl &&
+        openssl req -x509 -nodes -days 365 -newkey rsa:4096
+        -keyout /certs/server.key -out /certs/server.crt
+        -subj '/C=EU/ST=Space/L=MissionControl/O=SentryGround-Zero/CN=localhost' &&
+        openssl dhparam -out /certs/dhparam.pem 2048 &&
+        chmod 600 /certs/server.key /certs/dhparam.pem
+      "
+
+  sentry-space-image:
+    image: sentryground-zero/space-segment:local
+    build:
+      context: ./services/space-segment
+
+  ground-image:
+    image: sentryground-zero/ground-segment:local
+    build:
+      context: ./services/ground-segment
+
+  sentry-deep-space:
+    <<: *satellite
     ports:
       - "8080:8080"
+    environment:
+      - MISSION_PROFILE=deep_space
+      - PYTHONUNBUFFERED=1
+
+  sentry-dark-matter:
+    <<: *satellite
+    ports:
+      - "8081:8080"
     environment:
       - MISSION_PROFILE=dark_matter
       - PYTHONUNBUFFERED=1
 
-  sentry-exo-1:
-    build: 
-      context: ./SentrySat
+  sentry-earth-obs:
+    <<: *satellite
     ports:
-      - "8081:8080"
+      - "8082:8080"
+    environment:
+      - MISSION_PROFILE=earth_observation
+      - PYTHONUNBUFFERED=1
+
+  sentry-exoplanet:
+    <<: *satellite
+    ports:
+      - "8083:8080"
     environment:
       - MISSION_PROFILE=exoplanet
       - PYTHONUNBUFFERED=1
 
-  sentry-eo-1:
-    build: 
-      context: ./SentrySat
+  sentry-stellar:
+    <<: *satellite
     ports:
-      - "8082:8080"
+      - "8084:8080"
     environment:
-      - MISSION_PROFILE=earth
+      - MISSION_PROFILE=stellar
       - PYTHONUNBUFFERED=1
 
-  # --- MISSION CONTROL ---
-  
-  ground-segment:
-    build:
-      context: ./EO_DataSecurity
-    # These flags are critical to let the user attach and play the CLI loop
-    stdin_open: true 
-    tty: true
+  sentry-black-hole:
+    <<: *satellite
+    ports:
+      - "8085:8080"
     environment:
-      - SPACE_SEGMENT_HOSTS=sentry-astro-1,sentry-exo-1,sentry-eo-1
+      - MISSION_PROFILE=black_hole
+      - PYTHONUNBUFFERED=1
+
+  sentry-gravitational-wave:
+    <<: *satellite
+    ports:
+      - "8086:8080"
+    environment:
+      - MISSION_PROFILE=gravitational_wave
+      - PYTHONUNBUFFERED=1
+
+  sentry-asteroid:
+    <<: *satellite
+    ports:
+      - "8087:8080"
+    environment:
+      - MISSION_PROFILE=asteroid
+      - PYTHONUNBUFFERED=1
+
+  sentry-earth-climate:
+    <<: *satellite
+    ports:
+      - "8088:8080"
+    environment:
+      - MISSION_PROFILE=earth_climate
+      - PYTHONUNBUFFERED=1
+
+  sentry-survey:
+    <<: *satellite
+    ports:
+      - "8089:8080"
+    environment:
+      - MISSION_PROFILE=survey
+      - PYTHONUNBUFFERED=1
+
+  ground-segment:
+    image: sentryground-zero/ground-segment:local
+    stdin_open: true
+    tty: true
+    <<: *security-config
+    environment:
+      - SPACE_SEGMENT_HOSTS=sentry-deep-space,sentry-dark-matter,sentry-earth-obs,sentry-exoplanet,sentry-stellar,sentry-black-hole,sentry-gravitational-wave,sentry-asteroid,sentry-earth-climate,sentry-survey
       - PG_HOST=db
       - PG_USER=sentry_admin
-      - PG_PASSWORD=secure_password_123
+      - PG_PASSWORD=${POSTGRES_PASSWORD:-secure_password_123}
       - PG_DBNAME=eo_security
-      # Force use of structured DB and ML IDS
       - USE_SQLITE=1
       - USE_ML=1
       - PYTHONUNBUFFERED=1
+      - ENABLE_HTTPS=1
     volumes:
       - eo_data:/app/simulation_data
     depends_on:
       db:
         condition: service_healthy
-      sentry-astro-1:
-        condition: service_started
-      sentry-exo-1:
-        condition: service_started
-      sentry-eo-1:
+      certs:
         condition: service_started
 
   web-dashboard:
-    build:
-      context: ./EO_DataSecurity
-    command: streamlit run dashboard.py --server.port=8501 --server.address=0.0.0.0
+    image: sentryground-zero/ground-segment:local
+    <<: *security-config
+    command: >
+      streamlit run web/dashboard.py
+      --server.port=8501
+      --server.address=0.0.0.0
+      --server.sslCertFile=/certs/server.crt
+      --server.sslKeyFile=/certs/server.key
+      --server.headless=true
+      --browser.gatherUsageStats=false
     ports:
       - "8501:8501"
+      - "8502:8502"
     volumes:
       - eo_data:/app/simulation_data
+      - ./certs:/certs:ro
     environment:
       - PG_HOST=db
       - PG_USER=sentry_admin
-      - PG_PASSWORD=secure_password_123
+      - PG_PASSWORD=${POSTGRES_PASSWORD:-secure_password_123}
       - PG_DBNAME=eo_security
+      - STREAMLIT_SERVER_SSL_CERT=/certs/server.crt
+      - STREAMLIT_SERVER_SSL_KEY=/certs/server.key
     depends_on:
       - ground-segment
+      - certs
+
+  nginx-proxy:
+    image: nginx:alpine
+    <<: *security-config
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./certs:/certs:ro
+      - ./nginx.conf:/etc/nginx/nginx.conf:ro
+      - eo_data:/app/simulation_data:ro
+    depends_on:
+      - web-dashboard
+      - certs
 
 volumes:
   pgdata:
